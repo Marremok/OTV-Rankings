@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+// Pillar = Template (admin-created, defines rating structure)
+// NOT linked to a specific series - linked to mediaType instead
+model Pillar {
+  id          String    @id
+  type        String    @unique // ex. "writing", "directing", "acting"
+  mediaType   mediaType // Which media type this pillar applies to
+  icon        String?
+  description String?
+  weight      Float     @default(1.0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+
+  // Relations
+  questions     Question[]
+  ratingPillars RatingPillar[] // User ratings based on this template
+}
+
+// RatingPillar = User's actual rating (user-owned)
+// Created when a user rates a series using a Pillar template
+model RatingPillar {
+  id        String   @id
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  // Foreign keys
+  userId   String
+  seriesId String
+  pillarId String // References the Pillar template used
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  pillar Pillar @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+
+  // Ensure user can only rate each pillar once per series
+  @@unique([userId, seriesId, pillarId])
+  @@index([userId])
+  @@index([seriesId])
+  @@index([pillarId])
+}
+
+
+
+// Question = Part of a Pillar template
+// Defines what aspects are evaluated within a pillar
+model Question {
+  id          String   @id
+  title       String
+  weight      Float    @default(1.0) // How much this question affects pillar score
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  // Foreign key to Pillar template
+  pillarId String
+
+  pillar Pillar @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+
+  @@index([pillarId])
+}
+
+
+model Series {
+  id           String         @id
+  title        String
+  description  String?
+  releaseYear  Int?
+  imageUrl     String?
+  wideImageUrl String?        // Bred bild för hero-sektion på seriesidan
+  slug         String?        @unique
+  genre        String[]
+  seasons      Int?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  score        Float          // uppdateras och räknas ut med hjälp av pillar
+  ranking      Int            @default(0)
+
+  ratingPillars  RatingPillar[] 
+  characters   Character[]
+  seriesSeasons Season[]
+
+  @@index([createdAt])
+  @@index([releaseYear])
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  role          String    @default("user")
+
+  ratingPillars RatingPillar[] // User's ratings
+
+
+  account       Account[]
+  session       Session[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+}
+
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Character {
+  id        String   @id
+  name      String
+  posterUrl String?
+  ranking   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  seriesId String
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([seriesId])
+}
+
+model Season {
+  id           String   @id
+  seasonNumber Int
+  posterUrl    String?
+  ranking      Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  seriesId String
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  episodes Episode[]
+
+  @@index([seriesId])
+}
+
+model Episode {
+  id            String   @id
+  episodeNumber Int
+  title         String
+  ranking       Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  seasonId String
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@index([seasonId])
+}
+
+enum mediaType {
+  SERIES
+  CHARACTER 
+  EPISODE
+  SEASON 
+}
