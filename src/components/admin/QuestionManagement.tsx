@@ -10,11 +10,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { PlusIcon, Loader2, HelpCircle } from "lucide-react"
-import { useCreateQuestion } from "@/hooks/use-pillars"
+import { PlusIcon, Loader2, HelpCircle, Trash2 } from "lucide-react"
+import { useCreateQuestion, useDeleteQuestion } from "@/hooks/use-pillars"
 
 // Question type
 export interface Question {
@@ -31,6 +41,28 @@ interface QuestionListProps {
 }
 
 export function QuestionList({ questions, pillarId, onAddQuestion }: QuestionListProps) {
+  const deleteQuestion = useDeleteQuestion()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null)
+
+  const openDeleteDialog = (question: Question, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setQuestionToDelete(question)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteQuestion = async () => {
+    if (!questionToDelete) return
+
+    try {
+      await deleteQuestion.mutateAsync(questionToDelete.id)
+      setDeleteDialogOpen(false)
+      setQuestionToDelete(null)
+    } catch (error) {
+      console.error("Failed to delete question:", error)
+    }
+  }
+
   return (
     <div className="border-t border-border bg-muted/30 p-4">
       <div className="flex items-center justify-between mb-3">
@@ -69,6 +101,14 @@ export function QuestionList({ questions, pillarId, onAddQuestion }: QuestionLis
               <span className="text-xs text-muted-foreground">
                 Weight: {question.weight}
               </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 text-destructive hover:text-destructive"
+                onClick={(e) => openDeleteDialog(question, e)}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
             </div>
           ))}
         </div>
@@ -78,6 +118,36 @@ export function QuestionList({ questions, pillarId, onAddQuestion }: QuestionLis
           <p className="text-sm">No questions yet. Add questions to define rating criteria.</p>
         </div>
       )}
+
+      {/* Delete Question Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Question</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the question "{questionToDelete?.title}"?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteQuestion}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteQuestion.isPending}
+            >
+              {deleteQuestion.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

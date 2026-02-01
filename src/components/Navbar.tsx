@@ -42,7 +42,7 @@ export default function Navbar() {
                 Support Us 
               </button>
             </Link>
-            <Link href={"/method"}>
+            <Link href={"/methodology"}>
               <button className="text-foreground hover:text-primary transition-colors font-medium">
                 Our Methodology
               </button>

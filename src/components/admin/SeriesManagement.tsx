@@ -8,14 +8,60 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { PlusIcon, Tv, ImageIcon, Loader2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { PlusIcon, Tv, ImageIcon, Loader2, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { AddSeriesDialog } from "./AddSeriesDialog"
+import { EditSeriesDialog, SeriesData } from "./EditSeriesDialog"
 import { useGetSeries } from "@/hooks/use-rankings"
+import { useDeleteSeries } from "@/hooks/use-series"
 
 function SeriesManagement() {
   const { data: series, isLoading, error, refetch } = useGetSeries()
+  const deleteSeriesMutation = useDeleteSeries()
+
+  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [seriesToEdit, setSeriesToEdit] = useState<SeriesData | null>(null)
+  const [seriesToDelete, setSeriesToDelete] = useState<SeriesData | null>(null)
+
+  // Open edit dialog
+  const openEditDialog = (s: SeriesData, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSeriesToEdit(s)
+    setEditDialogOpen(true)
+  }
+
+  // Open delete confirmation
+  const openDeleteDialog = (s: SeriesData, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSeriesToDelete(s)
+    setDeleteDialogOpen(true)
+  }
+
+  // Handle series deletion
+  const handleDeleteSeries = async () => {
+    if (!seriesToDelete) return
+
+    try {
+      await deleteSeriesMutation.mutateAsync(seriesToDelete.id)
+      setDeleteDialogOpen(false)
+      setSeriesToDelete(null)
+    } catch (error) {
+      console.error("Failed to delete series:", error)
+    }
+  }
 
   return (
     <>
@@ -65,6 +111,25 @@ function SeriesManagement() {
                     key={s.id}
                     className="group relative rounded-2xl overflow-hidden bg-card border border-border hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer"
                   >
+                    {/* Action buttons overlay */}
+                    <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="size-7"
+                        onClick={(e) => openEditDialog(s as SeriesData, e)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="size-7 text-destructive hover:text-destructive"
+                        onClick={(e) => openDeleteDialog(s as SeriesData, e)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                     <div className="aspect-2/3 bg-muted relative">
                       {s.imageUrl ? (
                         <img
@@ -118,6 +183,45 @@ function SeriesManagement() {
         onOpenChange={setDialogOpen}
         onAddSeries={() => refetch()}
       />
+
+      {/* Edit Series Dialog */}
+      <EditSeriesDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        series={seriesToEdit}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Delete Series Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Series</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{seriesToDelete?.title}"?
+              This will also delete all user ratings for this series.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSeries}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteSeriesMutation.isPending}
+            >
+              {deleteSeriesMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

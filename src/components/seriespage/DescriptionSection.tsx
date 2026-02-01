@@ -50,7 +50,7 @@ export function DescriptionSection({ title, description, score, ranking }: Descr
                     <Star className="h-5 w-5 text-primary fill-primary" />
                   </div>
                   <span className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">
-                    OTV Rating
+                    OTV Score
                   </span>
                 </div>
 

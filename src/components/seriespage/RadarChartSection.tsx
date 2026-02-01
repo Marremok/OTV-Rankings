@@ -1,17 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Pen, Film, Users, Sparkles, Music, LucideIcon } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { RadarChart, PillarData } from "./RadarChart";
-
-// Placeholder pillar data - will be replaced with real data
-const PILLAR_DATA: PillarData[] = [
-  { name: "Writing", score: 10, icon: Pen },
-  { name: "Directing", score: 9.7, icon: Film },
-  { name: "Production", score: 9.5, icon: Users },
-  { name: "Characters", score: 9.2, icon: Sparkles },
-  { name: "Overall", score: 9.7, icon: Music },
-];
+import { SeriesPillarScores } from "@/lib/actions/scoring";
+import { getPillarIcon, capitalize } from "./pillar-utils";
 
 interface PillarCardProps {
   pillar: PillarData;
@@ -63,7 +56,7 @@ function PillarCard({ pillar, index }: PillarCardProps) {
               ? "bg-primary/10 text-primary"
               : "bg-zinc-800 text-zinc-400"
           )}>
-            {pillar.score.toFixed(1)}
+            {pillar.score.toFixed(2)}
           </div>
         </div>
 
@@ -91,11 +84,66 @@ function PillarCard({ pillar, index }: PillarCardProps) {
 }
 
 /**
+ * Empty state when no ratings exist yet
+ */
+function EmptyRatingsState() {
+  return (
+    <section className="relative py-24 px-6 overflow-hidden">
+      <div className="max-w-6xl mx-auto relative">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-3 mb-4">
+            <div className="h-px w-12 bg-linear-to-r from-transparent to-primary/50" />
+            <span className="text-xs font-bold text-primary uppercase tracking-[0.3em]">
+              Analysis
+            </span>
+            <div className="h-px w-12 bg-linear-to-l from-transparent to-primary/50" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+            Rating Breakdown
+          </h2>
+          <div className="mt-12 flex flex-col items-center gap-4">
+            <div className="p-6 rounded-2xl bg-zinc-900/40 border border-zinc-800/50">
+              <BarChart3 className="h-12 w-12 text-zinc-600" />
+            </div>
+            <p className="text-zinc-500 max-w-md">
+              No ratings yet. Be the first to rate this series and contribute to the breakdown!
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+interface RadarChartSectionProps {
+  pillarScores?: SeriesPillarScores | null;
+  overallScore?: number;
+}
+
+/**
  * RadarChartSection - Rating breakdown with pentagon chart and pillar list
  * Features striking visuals, glow effects, and smooth animations
  */
-export function RadarChartSection() {
-  const averageScore = PILLAR_DATA.reduce((acc, p) => acc + p.score, 0) / PILLAR_DATA.length;
+export function RadarChartSection({ pillarScores, overallScore = 0 }: RadarChartSectionProps) {
+  // Convert pillarScores to PillarData array for the chart
+  const pillarData: PillarData[] = pillarScores
+    ? Object.entries(pillarScores).map(([type, data]) => ({
+        name: capitalize(type),
+        score: data.avgScore,
+        icon: getPillarIcon(type),
+      }))
+    : [];
+
+  // Show empty state if no ratings
+  if (pillarData.length === 0) {
+    return <EmptyRatingsState />;
+  }
+
+  // Calculate average from pillar scores (or use provided overall score)
+  const averageScore = overallScore ||
+    (pillarData.length > 0
+      ? pillarData.reduce((acc, p) => acc + p.score, 0) / pillarData.length
+      : 0);
 
   return (
     <section className="relative py-24 px-6 overflow-hidden">
@@ -123,7 +171,7 @@ export function RadarChartSection() {
             Rating Breakdown
           </h2>
           <p className="text-zinc-500 max-w-md mx-auto">
-            Detailed scoring across the five core pillars of quality
+            Detailed scoring across {pillarData.length} rating {pillarData.length === 1 ? 'pillar' : 'pillars'}
           </p>
         </div>
 
@@ -140,13 +188,13 @@ export function RadarChartSection() {
 
               {/* Chart */}
               <div className="relative z-10">
-                <RadarChart pillars={PILLAR_DATA} size={340} />
+                <RadarChart pillars={pillarData} size={340} />
               </div>
 
               {/* Center score display */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center z-20 pointer-events-none">
                 <div className="text-4xl font-black text-white tabular-nums">
-                  {averageScore.toFixed(1)}
+                  {averageScore.toFixed(2)}
                 </div>
                 <div className="text-xs text-zinc-500 uppercase tracking-wider mt-1">
                   Average
@@ -168,7 +216,7 @@ export function RadarChartSection() {
             </div>
 
             {/* Pillar cards */}
-            {PILLAR_DATA.map((pillar, index) => (
+            {pillarData.map((pillar, index) => (
               <PillarCard key={pillar.name} pillar={pillar} index={index} />
             ))}
 
@@ -181,7 +229,7 @@ export function RadarChartSection() {
                     "text-3xl font-black tabular-nums",
                     averageScore >= 9.0 ? "text-emerald-400" : averageScore >= 7.0 ? "text-primary" : "text-zinc-300"
                   )}>
-                    {averageScore.toFixed(1)}
+                    {averageScore.toFixed(2)}
                   </span>
                   <span className="text-zinc-600">/ 10</span>
                 </div>

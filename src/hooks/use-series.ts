@@ -1,6 +1,14 @@
 "use client"
 
-import { createSeries, getSeriesBySlug, getSeries, CreateSeriesInput } from "@/lib/actions/series"
+import {
+  createSeries,
+  getSeriesBySlug,
+  getSeries,
+  editSeries,
+  deleteSeries,
+  CreateSeriesInput,
+  EditSeriesInput,
+} from "@/lib/actions/series"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 // ============================================
@@ -33,6 +41,43 @@ export function useCreateSeries() {
       queryClient.invalidateQueries({ queryKey: ["getTop100Series"] })
     },
     onError: (error) => console.error("Error while creating series:", error),
+  })
+}
+
+/**
+ * Hook for editing an existing series
+ * Invalidates series queries on success
+ */
+export function useEditSeries() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: EditSeriesInput) => editSeries(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getSeries"] })
+      queryClient.invalidateQueries({ queryKey: ["getTop10Series"] })
+      queryClient.invalidateQueries({ queryKey: ["getTop100Series"] })
+      queryClient.invalidateQueries({ queryKey: ["series"] })
+    },
+    onError: (error) => console.error("Error while updating series:", error),
+  })
+}
+
+/**
+ * Hook for deleting a series
+ * Invalidates series queries on success
+ */
+export function useDeleteSeries() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteSeries(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getSeries"] })
+      queryClient.invalidateQueries({ queryKey: ["getTop10Series"] })
+      queryClient.invalidateQueries({ queryKey: ["getTop100Series"] })
+    },
+    onError: (error) => console.error("Error while deleting series:", error),
   })
 }
 

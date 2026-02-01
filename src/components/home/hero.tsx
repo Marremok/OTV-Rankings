@@ -1,11 +1,85 @@
-import { ArrowRight, BarChart3, ChartColumnStacked, Film, Sparkles, Star, Trophy, Tv, Users } from 'lucide-react'
+import { ArrowRight, BarChart3, ChartColumnStacked, Sparkles, Tv } from 'lucide-react'
 import Link from 'next/link'
-import React from 'react'
 import { Button } from '../ui/button'
+
+// Floating poster configuration - easy to plug in images later
+const FLOATING_POSTERS = [
+  { id: 1, src: "https://upload.wikimedia.org/wikipedia/en/1/1c/Better_Call_Saul_season_1.jpg", alt: "TV Series 1", position: "top-[8%] left-[5%]", size: "w-28 h-40", delay: "0s", duration: "6s" },
+  { id: 2, src: "https://resizing.flixster.com/-XZAfHZM39UwaGJIFWKAE8fS0ak=/v3/t/assets/p7894124_b_v8_ab.jpg", alt: "TV Series 2", position: "top-[15%] right-[8%]", size: "w-24 h-36", delay: "1s", duration: "7s" },
+  { id: 3, src: "https://m.media-amazon.com/images/M/MV5BZjliODY5MzQtMmViZC00MTZmLWFhMWMtMjMwM2I3OGY1MTRiXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg", alt: "TV Series 3", position: "top-[45%] left-[3%]", size: "w-20 h-28", delay: "0.5s", duration: "5.5s" },
+  { id: 4, src: "https://m.media-amazon.com/images/M/MV5BMTNhMDJmNmYtNDQ5OS00ODdlLWE0ZDAtZTgyYTIwNDY3OTU3XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg", alt: "TV Series 4", position: "top-[35%] right-[4%]", size: "w-22 h-32", delay: "1.5s", duration: "6.5s" },
+  { id: 5, src: "https://m.media-amazon.com/images/M/MV5BMzU5ZGYzNmQtMTdhYy00OGRiLTg0NmQtYjVjNzliZTg1ZGE4XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg", alt: "TV Series 5", position: "bottom-[25%] left-[8%]", size: "w-26 h-38", delay: "2s", duration: "7.5s" },
+  { id: 6, src: "https://serializd-tmdb-images.b-cdn.net/t/p/w500/sCgzLaVlFy8KxtxRPvt1V5MNTDb.jpg", alt: "TV Series 6", position: "bottom-[20%] right-[6%]", size: "w-24 h-34", delay: "0.8s", duration: "6.2s" },
+  { id: 7, src: "https://m.media-amazon.com/images/M/MV5BYTY4YTVkY2QtMjRmOS00YzliLWIxOWQtMTdkOTVkN2UzODNmXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg", alt: "TV Series 7", position: "top-[60%] right-[12%]", size: "w-18 h-26", delay: "2.5s", duration: "5.8s" },
+  { id: 8, src: "https://m.media-amazon.com/images/M/MV5BZmZhY2ViYzYtMTQ0NS00NDcyLWIxZTYtMGUyODE0NDA0NmNkXkEyXkFqcGc@._V1_.jpg", alt: "TV Series 8", position: "bottom-[35%] left-[12%]", size: "w-20 h-30", delay: "1.2s", duration: "6.8s" },
+]
+
+function FloatingPoster({
+  src,
+  alt,
+  position,
+  size,
+  delay,
+  duration
+}: {
+  src: string
+  alt: string
+  position: string
+  size: string
+  delay: string
+  duration: string
+}) {
+  return (
+    <div
+      className={`absolute ${position} ${size} pointer-events-none`}
+      style={{
+        animation: `float ${duration} ease-in-out infinite`,
+        animationDelay: delay,
+      }}
+    >
+      <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl shadow-black/50 border border-white/10 bg-zinc-900/80 backdrop-blur-sm transition-transform duration-700 hover:scale-105">
+        {src ? (
+          <img
+            src={src}
+            alt={alt}
+            className="w-full h-full object-cover opacity-80"
+          />
+        ) : (
+          // Placeholder when no image is set
+          <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-primary/20 via-primary/5 to-zinc-900">
+            <Tv className="w-8 h-8 text-primary/30" />
+          </div>
+        )}
+        {/* Subtle gradient overlay */}
+        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+        {/* Glow effect */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-primary/10" />
+      </div>
+    </div>
+  )
+}
 
 function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* CSS for float animation */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          25% {
+            transform: translateY(-15px) rotate(1deg);
+          }
+          50% {
+            transform: translateY(-8px) rotate(-0.5deg);
+          }
+          75% {
+            transform: translateY(-20px) rotate(0.5deg);
+          }
+        }
+      `}</style>
+
       {/* GRID BACKGROUND */}
       <div className="absolute inset-0 bg-linear-to-br from-background via-muted to-background">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8882_1px,transparent_1px),linear-gradient(to_bottom,#8882_1px,transparent_1px)] bg-size-[4rem_4rem] mask-[radial-gradient(ellipse_80%_60%_at_50%_0%,#000_70%,transparent_110%)]" />
@@ -16,24 +90,19 @@ function Hero() {
       <div className="absolute bottom-1/4 right-1/4 w-100 h-100 bg-primary/10 rounded-full blur-[100px] animate-pulse [animation-delay:1s]" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-150 bg-primary/5 rounded-full blur-[150px]" />
 
-      {/* FLOATING DECORATIVE ICONS */}
-      <div className="absolute top-[15%] left-[10%] text-primary/20 animate-bounce animation-duration-[3s]">
-        <Tv className="w-10 h-10" />
-      </div>
-      <div className="absolute top-[20%] right-[12%] text-primary/15 animate-bounce animation-duration-[4s] [animation-delay:0.5s]">
-        <Star className="w-8 h-8" />
-      </div>
-      <div className="absolute bottom-[25%] left-[8%] text-primary/15 animate-bounce animation-duration-[3.5s] [animation-delay:1s]">
-        <Film className="w-9 h-9" />
-      </div>
-      <div className="absolute bottom-[20%] right-[10%] text-primary/20 animate-bounce animation-duration-[4.5s] [animation-delay:0.3s]">
-        <Trophy className="w-10 h-10" />
-      </div>
-      <div className="absolute top-[40%] right-[5%] text-primary/10 animate-bounce animation-duration-[5s] [animation-delay:1.5s]">
-        <BarChart3 className="w-7 h-7" />
-      </div>
-      <div className="absolute top-[35%] left-[5%] text-primary/10 animate-bounce animation-duration-[4s] [animation-delay:2s]">
-        <Sparkles className="w-8 h-8" />
+      {/* FLOATING TV SERIES POSTERS */}
+      <div className="absolute inset-0 overflow-hidden">
+        {FLOATING_POSTERS.map((poster) => (
+          <FloatingPoster
+            key={poster.id}
+            src={poster.src}
+            alt={poster.alt}
+            position={poster.position}
+            size={poster.size}
+            delay={poster.delay}
+            duration={poster.duration}
+          />
+        ))}
       </div>
 
       {/* DIAGONAL ACCENT LINES */}

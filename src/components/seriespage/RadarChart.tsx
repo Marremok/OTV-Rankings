@@ -223,7 +223,7 @@ export function RadarChart({ pillars, size = 320, animated = true }: RadarChartP
               "text-base font-bold tabular-nums",
               isHighScore ? "text-emerald-400" : isMidScore ? "text-primary" : "text-zinc-300"
             )}>
-              {pillar.score.toFixed(1)}
+              {pillar.score.toFixed(2)}
             </span>
           </div>
         );

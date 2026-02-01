@@ -6,14 +6,21 @@ import {
   getPillars,
   createRatingPillar,
   getUserRatingPillars,
+  getUserRatingsForMultipleSeries,
+  getPillarCount,
+  editPillar,
+  deletePillar,
   CreatePillarInput,
   CreateRatingPillarInput,
+  EditPillarInput,
 } from "@/lib/actions/pillars"
 import {
   createQuestion,
   getQuestionsByPillar,
+  deleteQuestion,
   CreateQuestionInput,
 } from "@/lib/actions/questions"
+import { getSeriesPillarScoresBySlug } from "@/lib/actions/scoring"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { mediaType } from "@/generated/prisma/enums"
 
@@ -35,6 +42,40 @@ export function useCreatePillar() {
       queryClient.invalidateQueries({ queryKey: ["getAllPillars"] })
     },
     onError: (error) => console.error("Error while creating pillar:", error),
+  })
+}
+
+/**
+ * Hook for editing an existing pillar template
+ * Invalidates pillar queries on success
+ */
+export function useEditPillar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: EditPillarInput) => editPillar(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getPillars"] })
+      queryClient.invalidateQueries({ queryKey: ["getAllPillars"] })
+    },
+    onError: (error) => console.error("Error while updating pillar:", error),
+  })
+}
+
+/**
+ * Hook for deleting a pillar template
+ * Invalidates pillar queries on success
+ */
+export function useDeletePillar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deletePillar(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getPillars"] })
+      queryClient.invalidateQueries({ queryKey: ["getAllPillars"] })
+    },
+    onError: (error) => console.error("Error while deleting pillar:", error),
   })
 }
 
@@ -83,6 +124,23 @@ export function useCreateQuestion() {
 }
 
 /**
+ * Hook for deleting a question
+ * Invalidates pillar queries on success
+ */
+export function useDeleteQuestion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteQuestion(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getAllPillars"] })
+      queryClient.invalidateQueries({ queryKey: ["getPillars"] })
+    },
+    onError: (error) => console.error("Error while deleting question:", error),
+  })
+}
+
+/**
  * Hook for fetching questions by pillar ID
  */
 export function useGetQuestionsByPillar(pillarId: string) {
@@ -100,7 +158,10 @@ export function useGetQuestionsByPillar(pillarId: string) {
 /**
  * Hook for creating/updating a user's rating pillar
  * Called when user completes a quiz for a pillar
- * Invalidates user rating queries on success
+ *
+ * NOTE: Only invalidates user-specific queries, NOT series queries.
+ * Series scores (pillarScores, overall score) are updated periodically via cron,
+ * not on every rating submission. This avoids O(n) aggregation per submit.
  */
 export function useCreateRatingPillar() {
   const queryClient = useQueryClient()
@@ -108,12 +169,16 @@ export function useCreateRatingPillar() {
   return useMutation({
     mutationFn: (input: CreateRatingPillarInput) => createRatingPillar(input),
     onSuccess: (_, variables) => {
-      // Invalidate user's ratings for this series
+      // Invalidate user's ratings for this specific series
       queryClient.invalidateQueries({
         queryKey: ["userRatingPillars", variables.userId, variables.seriesId],
       })
-      // Also invalidate any series-related queries that might show ratings
-      queryClient.invalidateQueries({ queryKey: ["series"] })
+      // Invalidate user's ratings across all series (for TV series page cards)
+      queryClient.invalidateQueries({
+        queryKey: ["userRatingsMultipleSeries", variables.userId],
+      })
+      // NOTE: We intentionally do NOT invalidate ["series"] queries here.
+      // Community scores update via cron job, not per-rating.
     },
     onError: (error) => console.error("Error while saving rating:", error),
   })
@@ -128,5 +193,44 @@ export function useGetUserRatingPillars(userId: string | undefined, seriesId: st
     queryKey: ["userRatingPillars", userId, seriesId],
     queryFn: () => getUserRatingPillars(userId!, seriesId!),
     enabled: !!userId && !!seriesId,
+  })
+}
+
+/**
+ * Hook for fetching a user's ratings across multiple series
+ * Used for the TV series ranking page to show rating status
+ */
+export function useGetUserRatingsForMultipleSeries(userId: string | undefined, seriesIds: string[]) {
+  return useQuery({
+    queryKey: ["userRatingsMultipleSeries", userId, seriesIds],
+    queryFn: () => getUserRatingsForMultipleSeries(userId!, seriesIds),
+    enabled: !!userId && seriesIds.length > 0,
+  })
+}
+
+/**
+ * Hook for fetching the total pillar count for a media type
+ */
+export function useGetPillarCount(type: mediaType) {
+  return useQuery({
+    queryKey: ["pillarCount", type],
+    queryFn: () => getPillarCount(type),
+    enabled: !!type,
+  })
+}
+
+// ============================================
+// AGGREGATED PILLAR SCORES HOOKS
+// ============================================
+
+/**
+ * Hook for fetching aggregated pillar scores for a series by slug
+ * Used by RadarChartSection to display rating breakdown
+ */
+export function useGetSeriesPillarScores(slug: string | undefined) {
+  return useQuery({
+    queryKey: ["seriesPillarScores", slug],
+    queryFn: () => getSeriesPillarScoresBySlug(slug!),
+    enabled: !!slug,
   })
 }

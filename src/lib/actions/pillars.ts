@@ -155,6 +155,100 @@ export async function deletePillar(id: string) {
   }
 }
 
+// Input type for editing a pillar template
+export interface EditPillarInput {
+  id: string
+  type: string
+  mediaType: mediaType
+  icon?: string | null
+  description?: string | null
+  weight?: number
+}
+
+/**
+ * Updates an existing pillar template (admin only)
+ */
+export async function editPillar(input: EditPillarInput) {
+  try {
+    // Validate required fields
+    if (!input.id) {
+      throw new Error("Pillar ID is required")
+    }
+    if (!input.type || !input.type.trim()) {
+      throw new Error("Pillar type is required")
+    }
+    if (!input.mediaType) {
+      throw new Error("Media type is required")
+    }
+
+    // Validate weight if provided
+    if (input.weight !== undefined && (input.weight < 0 || input.weight > 10)) {
+      throw new Error("Weight must be between 0 and 10")
+    }
+
+    // Check that the pillar exists
+    const currentPillar = await prisma.pillar.findUnique({
+      where: { id: input.id },
+      select: { type: true },
+    })
+
+    if (!currentPillar) {
+      throw new Error("Pillar not found")
+    }
+
+    // If type is being changed, check for duplicates
+    const newType = input.type.trim().toLowerCase()
+    if (newType !== currentPillar.type) {
+      const existingPillar = await prisma.pillar.findUnique({
+        where: { type: newType },
+      })
+
+      if (existingPillar) {
+        throw new Error("A pillar with this type already exists")
+      }
+    }
+
+    const pillar = await prisma.pillar.update({
+      where: { id: input.id },
+      data: {
+        type: newType,
+        mediaType: input.mediaType,
+        icon: input.icon || null,
+        description: input.description || null,
+        weight: input.weight ?? 1.0,
+        updatedAt: new Date(),
+      },
+    })
+
+    revalidatePath("/admin")
+
+    return pillar
+  } catch (error: any) {
+    console.error("Error updating pillar:", error)
+
+    // Handle unique constraint violation (duplicate type)
+    if (error?.code === "P2002") {
+      throw new Error("A pillar with this type already exists")
+    }
+
+    if (error?.code === "P2025") {
+      throw new Error("Pillar not found")
+    }
+
+    // Re-throw validation errors
+    if (
+      error.message?.includes("required") ||
+      error.message?.includes("must be") ||
+      error.message?.includes("already exists") ||
+      error.message?.includes("not found")
+    ) {
+      throw error
+    }
+
+    throw new Error("Failed to update pillar")
+  }
+}
+
 
 // ============================================
 // RATING PILLAR ACTIONS (User ratings)
@@ -209,6 +303,9 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
       throw new Error("Series not found")
     }
 
+    // Round score to 2 decimal places
+    const roundedScore = Math.round(input.finalScore * 100) / 100
+
     // Upsert the rating pillar (create or update if exists)
     const ratingPillar = await prisma.ratingPillar.upsert({
       where: {
@@ -223,17 +320,20 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
         userId: input.userId,
         seriesId: input.seriesId,
         pillarId: input.pillarId,
-        score: Math.round(input.finalScore * 10) / 10, // Round to 1 decimal
+        score: roundedScore,
         updatedAt: new Date(),
       },
       update: {
-        score: Math.round(input.finalScore * 10) / 10, // Round to 1 decimal
+        score: roundedScore,
         updatedAt: new Date(),
       },
     })
 
-    // Revalidate relevant paths
-    revalidatePath(`/series/${series.slug}`)
+    // NOTE: Series scores are NOT updated immediately.
+    // They are recalculated periodically via:
+    //   - Development: npx tsx scripts/update-scores.ts
+    //   - Production: Cron job calling /api/cron/update-scores
+    // This avoids O(n) aggregation on every rating submission.
 
     return ratingPillar
   } catch (error: any) {
@@ -282,5 +382,59 @@ export async function getUserRatingPillars(userId: string, seriesId: string) {
   } catch (error) {
     console.error("Error fetching user rating pillars:", error)
     throw new Error("Failed to fetch user ratings")
+  }
+}
+
+/**
+ * Fetches all rating pillars for a user across multiple series
+ * Returns a map of seriesId -> user ratings for efficient lookup
+ */
+export async function getUserRatingsForMultipleSeries(userId: string, seriesIds: string[]) {
+  try {
+    if (!userId) {
+      return {}
+    }
+    if (!seriesIds.length) {
+      return {}
+    }
+
+    const ratingPillars = await prisma.ratingPillar.findMany({
+      where: {
+        userId,
+        seriesId: { in: seriesIds },
+      },
+      include: {
+        pillar: true,
+      },
+    })
+
+    // Group by seriesId
+    const ratingsMap: Record<string, typeof ratingPillars> = {}
+    for (const rating of ratingPillars) {
+      if (!ratingsMap[rating.seriesId]) {
+        ratingsMap[rating.seriesId] = []
+      }
+      ratingsMap[rating.seriesId].push(rating)
+    }
+
+    return ratingsMap
+  } catch (error) {
+    console.error("Error fetching user ratings for multiple series:", error)
+    return {}
+  }
+}
+
+/**
+ * Gets the total count of pillars for a specific media type
+ */
+export async function getPillarCount(mediaTypeFilter: mediaType) {
+  try {
+    const count = await prisma.pillar.count({
+      where: { mediaType: mediaTypeFilter },
+    })
+    return count
+  } catch (error) {
+    console.error("Error getting pillar count:", error)
+    return 0
   }
 }

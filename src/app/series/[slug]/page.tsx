@@ -8,6 +8,7 @@ import {
   RadarChartSection,
   RateYourselfSection,
 } from "@/components/seriespage";
+import { SeriesPillarScores } from "@/lib/actions/scoring";
 
 /**
  * SeriesPage - Dynamic series detail page
@@ -36,6 +37,9 @@ export default function SeriesPage() {
     notFound();
   }
 
+  // Get pillar scores from series data (stored as JSON)
+  const pillarScores = series.pillarScores as SeriesPillarScores | null;
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Cinematic hero with series title and key info */}
@@ -55,8 +59,11 @@ export default function SeriesPage() {
       {/* Section divider */}
       <SectionDivider />
 
-      {/* Rating breakdown with radar chart */}
-      <RadarChartSection />
+      {/* Rating breakdown with radar chart - uses real aggregated data */}
+      <RadarChartSection
+        pillarScores={pillarScores}
+        overallScore={series.score}
+      />
 
       {/* Section divider */}
       <SectionDivider />

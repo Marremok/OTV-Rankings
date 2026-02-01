@@ -84,12 +84,16 @@ model Series {
   seasons      Int?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime
-  score        Float          // uppdateras och räknas ut med hjälp av pillar
+  score        Float          // Overall score calculated from pillar scores
   ranking      Int            @default(0)
 
-  ratingPillars  RatingPillar[] 
-  characters   Character[]
-  seriesSeasons Season[]
+  // Aggregated pillar scores: { "writing": { avgScore: 8.5, raterCount: 15 }, ... }
+  pillarScores Json?
+
+  ratingPillars    RatingPillar[]
+  characters       Character[]
+  seriesSeasons    Season[]
+  userStatuses     UserSeriesStatus[] // Users' watchlist/seen/watching/favorite status
 
   @@index([createdAt])
   @@index([releaseYear])
@@ -101,15 +105,42 @@ model User {
   email         String    @unique
   emailVerified Boolean
   image         String?
+  profileImage  String?
+  heroImage     String?   // Hero-style banner image for profile page
   createdAt     DateTime
   updatedAt     DateTime
   role          String    @default("user")
 
-  ratingPillars RatingPillar[] // User's ratings
-
+  ratingPillars    RatingPillar[]     // User's ratings
+  seriesStatuses   UserSeriesStatus[] // Watchlist, seen, currently watching, favorites
 
   account       Account[]
   session       Session[]
+}
+
+// Tracks user's relationship with series (watchlist, seen, currently watching, favorites)
+model UserSeriesStatus {
+  id              String   @id @default(cuid())
+  userId          String
+  seriesId        String
+
+  // Status flags
+  isWatchlist     Boolean  @default(false)
+  isSeen          Boolean  @default(false)
+  isWatching      Boolean  @default(false)
+  isFavorite      Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series          Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  // One status record per user-series combination
+  @@unique([userId, seriesId])
+  @@index([userId])
+  @@index([seriesId])
 }
 
 model Session {

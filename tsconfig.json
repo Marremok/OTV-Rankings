@@ -31,6 +31,6 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     "src/lib/actions"
-  ],
-  "exclude": ["node_modules"]
+, "src/app/api/checkout_sessions/route.js"  ],
+  "exclude": ["node_modules", "scripts"]
 }

@@ -18,6 +18,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -28,10 +38,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { PlusIcon, Layers, Loader2, ChevronDown, ChevronUp } from "lucide-react"
-import { useCreatePillar, useGetAllPillars } from "@/hooks/use-pillars"
+import { PlusIcon, Layers, Loader2, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react"
+import { useCreatePillar, useGetAllPillars, useDeletePillar } from "@/hooks/use-pillars"
 import { mediaType } from "@/generated/prisma/enums"
 import { QuestionList, AddQuestionDialog } from "./QuestionManagement"
+import { EditPillarDialog, PillarData } from "./EditPillarDialog"
 
 // Pillar template type with questions
 interface PillarWithQuestions {
@@ -60,11 +71,20 @@ const MEDIA_TYPE_LABELS: Record<string, string> = {
 function PillarManagement() {
   const { data: pillars, isLoading, error, refetch } = useGetAllPillars()
   const createPillar = useCreatePillar()
+  const deletePillarMutation = useDeletePillar()
 
   // Dialog state
   const [pillarDialogOpen, setPillarDialogOpen] = useState(false)
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false)
   const [selectedPillarId, setSelectedPillarId] = useState<string | null>(null)
+
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [pillarToEdit, setPillarToEdit] = useState<PillarData | null>(null)
+
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [pillarToDelete, setPillarToDelete] = useState<PillarWithQuestions | null>(null)
 
   // Expanded pillar state (to show/hide questions)
   const [expandedPillars, setExpandedPillars] = useState<Set<string>>(new Set())
@@ -149,6 +169,33 @@ function PillarManagement() {
     setQuestionDialogOpen(true)
   }
 
+  // Open edit dialog for a specific pillar
+  const openEditDialog = (pillar: PillarWithQuestions, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPillarToEdit(pillar)
+    setEditDialogOpen(true)
+  }
+
+  // Open delete confirmation dialog
+  const openDeleteDialog = (pillar: PillarWithQuestions, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPillarToDelete(pillar)
+    setDeleteDialogOpen(true)
+  }
+
+  // Handle pillar deletion
+  const handleDeletePillar = async () => {
+    if (!pillarToDelete) return
+
+    try {
+      await deletePillarMutation.mutateAsync(pillarToDelete.id)
+      setDeleteDialogOpen(false)
+      setPillarToDelete(null)
+    } catch (error) {
+      console.error("Failed to delete pillar:", error)
+    }
+  }
+
   return (
     <>
       <Card className="mb-12">
@@ -227,6 +274,22 @@ function PillarManagement() {
                       <div className="text-muted-foreground">
                         <span className="font-medium text-foreground">{pillar.questions?.length || 0}</span> questions
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={(e) => openEditDialog(pillar, e)}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive hover:text-destructive"
+                        onClick={(e) => openDeleteDialog(pillar, e)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
                       {expandedPillars.has(pillar.id) ? (
                         <ChevronUp className="size-4 text-muted-foreground" />
                       ) : (
@@ -379,6 +442,44 @@ function PillarManagement() {
         onOpenChange={setQuestionDialogOpen}
         pillarId={selectedPillarId}
       />
+
+      {/* Edit Pillar Dialog */}
+      <EditPillarDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        pillar={pillarToEdit}
+      />
+
+      {/* Delete Pillar Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Pillar</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the pillar "{pillarToDelete?.type}"?
+              This will also delete all {pillarToDelete?.questions?.length || 0} questions
+              and any user ratings associated with this pillar. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePillar}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletePillarMutation.isPending}
+            >
+              {deletePillarMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

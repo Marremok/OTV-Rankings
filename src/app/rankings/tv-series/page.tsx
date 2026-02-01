@@ -1,13 +1,42 @@
 "use client"
 
 import { useGetTop100Series } from "@/hooks/use-rankings"
+import { useGetUserRatingsForMultipleSeries, useGetPillarCount } from "@/hooks/use-pillars"
+import { useSession } from "@/lib/auth-client"
 import { Card } from "@/components/ui/card"
-import { ChevronRight, Loader2, ShieldCheck } from "lucide-react"
+import { ChevronRight, Loader2, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { mediaType } from "@/generated/prisma/enums"
+import { useMemo } from "react"
+
+// Helper to calculate weighted sum from user ratings
+function calculateWeightedSum(ratings: { score: number; pillar: { weight: number } }[]) {
+  if (!ratings.length) return 0
+
+  let weightedSum = 0
+  let totalWeight = 0
+
+  for (const rating of ratings) {
+    weightedSum += rating.score * rating.pillar.weight
+    totalWeight += rating.pillar.weight
+  }
+
+  if (totalWeight === 0) return 0
+  return Math.round((weightedSum / totalWeight) * 100) / 100
+}
 
 export default function TVSeriesPage() {
+  const { data: session } = useSession()
+  const userId = session?.user?.id
   const { data: series = [], isLoading, isError } = useGetTop100Series()
+  const { data: totalPillarCount = 0 } = useGetPillarCount(mediaType.SERIES)
+
+  // Get all series IDs for fetching user ratings
+  const seriesIds = useMemo(() => series.map(s => s.id), [series])
+
+  // Fetch user ratings for all series at once
+  const { data: userRatingsMap = {} } = useGetUserRatingsForMultipleSeries(userId, seriesIds)
 
   return (
     <div className="relative min-h-screen bg-background text-foreground py-16 px-4 md:px-8 overflow-hidden">
@@ -143,14 +172,61 @@ export default function TVSeriesPage() {
                         </div>
                       </div>
 
-                      {/* DYNAMIC RATING ICON SLOT (Future Button) */}
-                      <div className="flex flex-col gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-700">Protocol</span>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/5 bg-zinc-900/50 text-zinc-500 transition-all duration-500 group-hover:border-primary/40 group-hover:text-primary group-hover:shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]">
-                          {/* Change this icon or turn it into a button later */}
-                          <ShieldCheck className="h-6 w-6" />
-                        </div>
-                      </div>
+                      {/* USER RATING STATUS */}
+                      {(() => {
+                        const userRatings = userRatingsMap[s.id] || []
+                        const ratedCount = userRatings.length
+                        const hasRatedAll = ratedCount >= totalPillarCount && totalPillarCount > 0
+                        const hasRatedSome = ratedCount > 0 && !hasRatedAll
+                        const userScore = calculateWeightedSum(userRatings)
+
+                        // State A: User has NOT rated any pillars
+                        if (ratedCount === 0) {
+                          return (
+                            <div className="flex flex-col gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-700">Rate Yourself</span>
+                              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/5 bg-zinc-900/50 text-zinc-500 transition-all duration-500 group-hover:border-primary/40 group-hover:text-primary group-hover:shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]">
+                                <Star className="h-6 w-6" />
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        // State B: User has rated SOME pillars, but NOT all
+                        if (hasRatedSome) {
+                          return (
+                            <div className="flex flex-col gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500/70">Current rating</span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-5xl font-black tracking-tighter tabular-nums text-amber-400">
+                                  {userScore.toFixed(2)}
+                                </span>
+                                <Link href={`/series/${s.slug}`}>
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-900/20 text-amber-500 transition-all duration-500 group-hover:border-amber-500/40 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                                    <Star className="h-5 w-5" />
+                                  </div>
+                                </Link>
+                              </div>
+                              <span className="text-[10px] font-medium text-amber-500/60">Finish your rating</span>
+                            </div>
+                          )
+                        }
+
+                        // State C: User has rated ALL pillars
+                        return (
+                          <div className="flex flex-col gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500/70">Your rating</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-5xl font-black tracking-tighter tabular-nums text-emerald-400">
+                                {userScore.toFixed(2)}
+                              </span>
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-900/20 text-emerald-500">
+                                <Star className="h-5 w-5 fill-emerald-500" />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     {/* THE FINAL INTERACTION: Ultra-wide CTA */}
