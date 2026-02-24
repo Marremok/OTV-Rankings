@@ -2,6 +2,9 @@
 
 import prisma from "../prisma"
 import { revalidatePath } from "next/cache"
+import type { Character, Series } from "@/generated/prisma/client"
+
+type CharacterWithSeries = Character & { series: Pick<Series, "id" | "title" | "slug"> }
 
 // Input type for creating a character
 export interface CreateCharacterInput {
@@ -284,7 +287,7 @@ export async function editCharacter(input: EditCharacterInput) {
 /**
  * Get top characters ordered by ranking (used for ranking pages)
  */
-export async function getTopCharacters(limit: number = 10) {
+export async function getTopCharacters(limit: number = 10): Promise<CharacterWithSeries[]> {
   try {
     const characters = await prisma.character.findMany({
       include: {
@@ -297,7 +300,7 @@ export async function getTopCharacters(limit: number = 10) {
       cacheStrategy: { swr: 60, ttl: 30 },
     })
 
-    return characters
+    return characters as CharacterWithSeries[]
   } catch (error) {
     console.error("Error fetching top characters:", error)
     throw new Error("Failed to fetch top characters")
