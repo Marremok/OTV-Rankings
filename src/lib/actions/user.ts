@@ -25,7 +25,7 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
     }
 
     const user = await prisma.user.findUnique({
-      cacheStrategy: { swr: 120, ttl: 60, tags: [`user-profile-${userId}`] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { id: userId },
       select: {
         id: true,

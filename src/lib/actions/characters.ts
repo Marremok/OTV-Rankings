@@ -101,7 +101,7 @@ export async function createCharacter(input: CreateCharacterInput) {
 export async function getCharacters() {
   try {
     const characters = await prisma.character.findMany({
-      cacheStrategy: { swr: 60, ttl: 30, tags: ["characters-list"] },
+      cacheStrategy: { swr: 60, ttl: 30 },
       include: {
         series: {
           select: {
@@ -131,7 +131,7 @@ export async function getCharactersBySeriesId(seriesId: string) {
     }
 
     const characters = await prisma.character.findMany({
-      cacheStrategy: { swr: 120, ttl: 60, tags: [`characters-series-${seriesId}`] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { seriesId },
       orderBy: { ranking: "desc" },
     })
@@ -158,7 +158,7 @@ export async function getCharacterById(id: string) {
     }
 
     const character = await prisma.character.findUnique({
-      cacheStrategy: { swr: 120, ttl: 60, tags: ["characters"] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { id },
       include: {
         series: true,
@@ -287,7 +287,7 @@ export async function editCharacter(input: EditCharacterInput) {
 export async function getTopCharacters(limit: number = 10) {
   try {
     const characters = await prisma.character.findMany({
-      cacheStrategy: { swr: 60, ttl: 30, tags: ["character-rankings"] },
+      cacheStrategy: { swr: 60, ttl: 30 },
       include: {
         series: {
           select: { id: true, title: true, slug: true },
@@ -314,7 +314,7 @@ export async function getCharacterBySlug(slug: string) {
     }
 
     const character = await prisma.character.findUnique({
-      cacheStrategy: { swr: 120, ttl: 60, tags: [`character-${slug}`] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { slug },
       include: {
         series: true,

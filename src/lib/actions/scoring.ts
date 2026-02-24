@@ -440,7 +440,7 @@ export async function updateAllSeriesScoresAndRankings() {
 export async function getSeriesPillarScores(seriesId: string) {
   try {
     const series = await prisma.series.findUnique({
-      cacheStrategy: { swr: 120, ttl: 60, tags: ["series-scores"] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { id: seriesId },
       select: { pillarScores: true, score: true },
     })
@@ -468,7 +468,7 @@ export async function getSeriesPillarScores(seriesId: string) {
 export async function getSeriesPillarScoresBySlug(slug: string) {
   try {
     const series = await prisma.series.findUnique({
-      cacheStrategy: { swr: 120, ttl: 60, tags: [`series-scores-${slug}`] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { slug },
       select: { id: true, pillarScores: true, score: true },
     })
@@ -499,7 +499,7 @@ export async function getSeriesPillarScoresBySlug(slug: string) {
 export async function getCharacterPillarScoresBySlug(slug: string) {
   try {
     const character = await prisma.character.findUnique({
-      cacheStrategy: { swr: 120, ttl: 60, tags: [`character-scores-${slug}`] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { slug },
       select: { id: true, pillarScores: true, score: true },
     })

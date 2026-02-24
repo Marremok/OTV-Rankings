@@ -104,7 +104,7 @@ export async function createSeries(input: CreateSeriesInput) {
 export async function getSeries() {
   try {
     const series = await prisma.series.findMany({
-      cacheStrategy: { swr: 60, ttl: 30, tags: ["series-list"] },
+      cacheStrategy: { swr: 60, ttl: 30 },
       include: { ratingPillars: true },
       orderBy: { createdAt: "asc" },
     })
@@ -119,7 +119,7 @@ export async function getSeries() {
 export async function getTop10Series() {
   try {
     const series = await prisma.series.findMany({
-      cacheStrategy: { swr: 60, ttl: 30, tags: ["series-rankings"] },
+      cacheStrategy: { swr: 60, ttl: 30 },
       include: { ratingPillars: true },
       orderBy: { score: "desc" },
       take: 10,
@@ -135,7 +135,7 @@ export async function getTop10Series() {
 export async function getTop100Series() {
   try {
     const series = await prisma.series.findMany({
-      cacheStrategy: { swr: 60, ttl: 30, tags: ["series-rankings"] },
+      cacheStrategy: { swr: 60, ttl: 30 },
       include: { ratingPillars: true },
       orderBy: { score: "desc" },
       take: 100,
@@ -151,7 +151,7 @@ export async function getTop100Series() {
 export async function getSeriesBySlug(slug: string) {
   try {
     const series = await prisma.series.findUnique({
-      cacheStrategy: { swr: 120, ttl: 60, tags: [`series-${slug}`] },
+      cacheStrategy: { swr: 120, ttl: 60 },
       where: { slug },
       include: {
         ratingPillars: {

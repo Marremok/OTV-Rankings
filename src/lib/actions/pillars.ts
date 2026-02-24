@@ -81,7 +81,7 @@ export async function createPillar(input: CreatePillarInput) {
 export async function getPillars(mediaTypeFilter?: mediaType) {
   try {
     const pillars = await prisma.pillar.findMany({
-      cacheStrategy: { swr: 600, ttl: 300, tags: ["pillars"] },
+      cacheStrategy: { swr: 600, ttl: 300 },
       where: mediaTypeFilter ? { mediaType: mediaTypeFilter } : undefined,
       include: { questions: true },
       orderBy: { createdAt: "asc" },
@@ -100,7 +100,7 @@ export async function getPillars(mediaTypeFilter?: mediaType) {
 export async function getAllPillars() {
   try {
     const pillars = await prisma.pillar.findMany({
-      cacheStrategy: { swr: 600, ttl: 300, tags: ["pillars"] },
+      cacheStrategy: { swr: 600, ttl: 300 },
       include: {
         questions: {
           orderBy: { createdAt: "asc" },
@@ -122,7 +122,7 @@ export async function getAllPillars() {
 export async function getPillarById(id: string) {
   try {
     const pillar = await prisma.pillar.findUnique({
-      cacheStrategy: { swr: 600, ttl: 300, tags: ["pillars"] },
+      cacheStrategy: { swr: 600, ttl: 300 },
       where: { id },
       include: {
         questions: {
@@ -568,7 +568,7 @@ export async function getUserRatingsForMultipleCharacters(userId: string, charac
 export async function getPillarCount(mediaTypeFilter: mediaType) {
   try {
     const count = await prisma.pillar.count({
-      cacheStrategy: { swr: 300, ttl: 120, tags: ["pillars"] },
+      cacheStrategy: { swr: 300, ttl: 120 },
       where: { mediaType: mediaTypeFilter },
     })
     return count
