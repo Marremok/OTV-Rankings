@@ -1,0 +1,4 @@
+{
+  "tailwindCSS.lint.suggestVariantGrouping": "ignore",
+  "tailwindCSS.lint.suggestCanonicalClasses": "ignore"
+}

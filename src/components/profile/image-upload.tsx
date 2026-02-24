@@ -102,15 +102,9 @@ export function ImageUploadDialog({
   const maxFileSize = aspectRatio === "wide" ? MAX_FILE_SIZE_HERO : MAX_FILE_SIZE_PROFILE;
   const maxFileSizeMB = maxFileSize / (1024 * 1024);
 
-  /**
-   * Handle file selection from device
-   * Currently creates a base64 data URL for preview
-   * TODO: In the future, this will upload to cloud storage (S3, Cloudinary, etc.)
-   */
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         setUploadProgress({
           status: "error",
@@ -120,7 +114,6 @@ export function ImageUploadDialog({
         return;
       }
 
-      // Validate file size based on image type
       if (file.size > maxFileSize) {
         setUploadProgress({
           status: "error",
@@ -133,7 +126,6 @@ export function ImageUploadDialog({
       setSelectedFile(file);
       setUploadProgress({ status: "idle", progress: 0 });
 
-      // Create preview using FileReader
       const reader = new FileReader();
       reader.onloadstart = () => {
         setUploadProgress({ status: "processing", progress: 10, message: "Reading file..." });
@@ -157,17 +149,12 @@ export function ImageUploadDialog({
       };
       reader.readAsDataURL(file);
     }
-  }, []);
+  }, [maxFileSize, maxFileSizeMB]);
 
-  /**
-   * Handle URL input submission
-   * Validates and loads the image from URL
-   */
   const handleUrlSubmit = useCallback(() => {
     if (urlInput.trim()) {
       setUploadProgress({ status: "processing", progress: 30, message: "Loading image..." });
 
-      // Create an image element to validate the URL
       const img = new Image();
       img.onload = () => {
         setPreviewUrl(urlInput.trim());
@@ -185,42 +172,12 @@ export function ImageUploadDialog({
     }
   }, [urlInput]);
 
-  /**
-   * Handle confirm/save action
-   * Currently saves the base64 or URL directly
-   *
-   * TODO: FUTURE FILE UPLOAD IMPLEMENTATION
-   * When implementing real file upload to storage:
-   * 1. Check if selectedFile exists (file was uploaded from device)
-   * 2. If yes, call the upload API endpoint:
-   *    ```
-   *    const formData = new FormData();
-   *    formData.append('file', selectedFile);
-   *    formData.append('type', aspectRatio); // 'square' for profile, 'wide' for hero
-   *
-   *    setUploadProgress({ status: 'uploading', progress: 0 });
-   *
-   *    const response = await fetch('/api/upload/image', {
-   *      method: 'POST',
-   *      body: formData,
-   *      // For progress tracking, use XMLHttpRequest or a library like axios
-   *    });
-   *
-   *    const { url } = await response.json();
-   *    onUpload(url); // Pass the cloud storage URL
-   *    ```
-   * 3. If no file (URL was used), just pass the URL directly
-   * 4. Consider adding image optimization/resizing on the server
-   * 5. Add proper error handling for upload failures
-   */
   const handleConfirm = useCallback(async () => {
     if (!previewUrl) return;
 
-    // Simulate upload progress for UX (remove when implementing real upload)
     if (selectedFile) {
       setUploadProgress({ status: "uploading", progress: 0, message: "Preparing upload..." });
 
-      // Simulate progress steps
       const steps = [20, 40, 60, 80, 100];
       for (const step of steps) {
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -232,15 +189,10 @@ export function ImageUploadDialog({
       }
     }
 
-    // Pass the preview URL (base64 or external URL)
-    // TODO: Replace previewUrl with the actual cloud storage URL when implementing real upload
     onUpload(previewUrl);
     handleClose();
   }, [previewUrl, selectedFile, onUpload]);
 
-  /**
-   * Reset and close dialog
-   */
   const handleClose = useCallback(() => {
     setPreviewUrl(null);
     setUrlInput("");
@@ -249,9 +201,6 @@ export function ImageUploadDialog({
     onClose();
   }, [onClose]);
 
-  /**
-   * Clear current preview/selection
-   */
   const clearPreview = useCallback(() => {
     setPreviewUrl(null);
     setSelectedFile(null);
@@ -289,12 +238,12 @@ export function ImageUploadDialog({
           </button>
         </div>
 
-        {/* Preview Area - larger for hero banners */}
+        {/* Preview Area */}
         <div
           className={cn(
             "relative mb-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-800/50 overflow-hidden",
             aspectRatio === "wide"
-              ? "w-full min-h-50 aspect-video" // Taller hero banner preview (16:9)
+              ? "w-full min-h-50 aspect-video"
               : "aspect-square max-w-50 mx-auto"
           )}
         >
@@ -400,16 +349,6 @@ export function ImageUploadDialog({
             )}
           </Button>
         </div>
-
-        {/* Future implementation note */}
-        {/*
-          TODO: When implementing cloud storage upload:
-          1. Create API route at /api/upload/image
-          2. Use multer or similar for file handling
-          3. Upload to S3/Cloudinary/similar
-          4. Return the public URL
-          5. Update this component to use real upload progress
-        */}
       </div>
     </div>
   );

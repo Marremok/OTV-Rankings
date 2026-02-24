@@ -2,6 +2,7 @@
 
 import { Star, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getScoreColor } from "./pillar-utils";
 
 interface DescriptionSectionProps {
   title: string;
@@ -15,32 +16,22 @@ interface DescriptionSectionProps {
  * Clean typography with modern glass-morphism rating card
  */
 export function DescriptionSection({ title, description, score, ranking }: DescriptionSectionProps) {
-  const scoreColor = score >= 9.0
-    ? "text-emerald-400"
-    : score >= 7.0
-    ? "text-primary"
-    : "text-zinc-300";
-
-  const barColor = score >= 9.0
-    ? "bg-emerald-400"
-    : score >= 7.0
-    ? "bg-primary"
-    : "bg-zinc-500";
+  const { text: scoreColor, bg: barColor } = getScoreColor(score);
 
   return (
-    <section className="relative py-24 px-6">
+    <section className="relative py-12 px-4 md:py-24 md:px-6">
       {/* Subtle background texture */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(var(--primary-rgb),0.03)_0%,transparent_50%)] pointer-events-none" />
 
       <div className="max-w-6xl mx-auto relative">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-16 items-start">
           {/* Rating Card */}
           <div className="lg:col-span-4">
             <div className="relative group">
               {/* Card glow effect on hover */}
               <div className="absolute -inset-1 bg-linear-to-r from-primary/20 via-primary/10 to-primary/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-              <div className="relative bg-zinc-900/70 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-8 text-center overflow-hidden">
+              <div className="relative bg-zinc-900/70 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 md:p-8 text-center overflow-hidden">
                 {/* Decorative corner accent */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-bl from-primary/10 to-transparent rounded-bl-full" />
 
@@ -57,7 +48,7 @@ export function DescriptionSection({ title, description, score, ranking }: Descr
                 {/* Score display */}
                 <div className="relative mb-2">
                   <span className={cn(
-                    "text-7xl font-black tabular-nums tracking-tight",
+                    "text-5xl md:text-7xl font-black tabular-nums tracking-tight",
                     scoreColor
                   )}>
                     {score.toFixed(2)}

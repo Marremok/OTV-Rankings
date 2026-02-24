@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
 export const METHODOLOGY_STEPS = [
   {
     id: 1,
-    title: "Select a Pillar",
+    title: "Select a Category",
     description:
-      "Choose one of the core pillars to evaluate. Each pillar focuses on a specific aspect e.g. writing, production.",
+      "Choose one of the core evaluation categories. Each category focuses on a distinct dimension of quality.",
     icon: Layers,
     color: "from-violet-500 to-indigo-600",
   },
@@ -20,7 +20,7 @@ export const METHODOLOGY_STEPS = [
     id: 2,
     title: "Answer Questions",
     description:
-      "Rate specific questions within each pillar on a 1-10 scale. Questions are weighted based on importance.",
+      "Rate specific questions within each category on a 1-10 scale. Questions are weighted based on their importance.",
     icon: ClipboardCheck,
     color: "from-blue-500 to-cyan-500",
   },
@@ -28,7 +28,7 @@ export const METHODOLOGY_STEPS = [
     id: 3,
     title: "Weighted Calculation",
     description:
-      "Your answers are combined using a weighted formula to calculate an accurate pillar score.",
+      "Your answers are combined using a weighted formula to produce an accurate score for each category.",
     icon: Calculator,
     color: "from-emerald-500 to-teal-500",
   },
@@ -36,7 +36,7 @@ export const METHODOLOGY_STEPS = [
     id: 4,
     title: "Final OTV Score",
     description:
-      "All pillar scores are aggregated into one comprehensive OTV Score that reflects the show's quality.",
+      "All category scores are aggregated into one comprehensive OTV Score that reflects the entry's true quality.",
     icon: Trophy,
     color: "from-amber-500 to-orange-500",
   },
@@ -103,7 +103,7 @@ export function StepCard({ step, index, isActive, onHover }: StepCardProps) {
         {/* Gradient background on hover */}
         <div
           className={cn(
-            "absolute inset-0 bg-gradient-to-br transition-opacity duration-500",
+            "absolute inset-0 bg-linear-to-br transition-opacity duration-500",
             step.color,
             isActive ? "opacity-10" : "opacity-0 group-hover:opacity-5"
           )}
@@ -133,7 +133,7 @@ export function StepCard({ step, index, isActive, onHover }: StepCardProps) {
           <div
             className={cn(
               "absolute inset-0 rounded-xl blur-lg transition-all duration-500",
-              `bg-gradient-to-br ${step.color}`,
+              `bg-linear-to-br ${step.color}`,
               isActive ? "opacity-50" : "opacity-0"
             )}
           />
@@ -167,7 +167,7 @@ export function StepCard({ step, index, isActive, onHover }: StepCardProps) {
         <div
           className={cn(
             "absolute bottom-0 left-0 right-0 h-1 transition-all duration-500",
-            `bg-gradient-to-r ${step.color}`,
+            `bg-linear-to-r ${step.color}`,
             isActive ? "opacity-100" : "opacity-0"
           )}
         />

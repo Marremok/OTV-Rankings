@@ -11,7 +11,7 @@ const FEATURES = [
   {
     icon: Target,
     title: "Precise Evaluation",
-    description: "Every aspect of a show is evaluated individually, ensuring no detail is overlooked.",
+    description: "Every aspect of an entry is evaluated individually, ensuring no detail is overlooked.",
   },
   {
     icon: Scale,
@@ -38,7 +38,7 @@ export function WhyItMattersSection() {
   return (
     <div className="py-16">
       <div className="text-center mb-12">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/10 to-primary/5 rounded-full border border-primary/20 backdrop-blur-sm mb-4">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-primary/10 to-primary/5 rounded-full border border-primary/20 backdrop-blur-sm mb-4">
           <CheckCircle2 className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-primary tracking-wide uppercase">
             Why It Matters
@@ -48,7 +48,8 @@ export function WhyItMattersSection() {
           Fair, Transparent, Structured
         </h2>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          Our methodology ensures every show gets evaluated fairly across all dimensions.
+          Our methodology ensures every entry is evaluated fairly, consistently, and transparently
+          across all dimensions.
         </p>
       </div>
 

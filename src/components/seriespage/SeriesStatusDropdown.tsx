@@ -5,6 +5,9 @@ import { List, Eye, Play, Heart, ChevronDown, Check, Loader2, LogIn } from "luci
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
 import { useSeriesStatus, useUpdateSeriesStatus } from "@/hooks/use-user-profile";
+import { useToggleFavoriteFromSeriesPage } from "@/hooks/use-favorites";
+import type { FavoriteItem } from "@/lib/actions/favorites";
+import { ReplaceFavoriteDialog } from "@/components/profile/favorites/ReplaceFavoriteDialog";
 
 // ============================================
 // TYPES
@@ -12,6 +15,7 @@ import { useSeriesStatus, useUpdateSeriesStatus } from "@/hooks/use-user-profile
 
 interface SeriesStatusDropdownProps {
   seriesId: string;
+  seriesTitle?: string;
   className?: string;
 }
 
@@ -69,17 +73,22 @@ const STATUS_OPTIONS: StatusOption[] = [
 // COMPONENT: Series Status Dropdown
 // ============================================
 
-export function SeriesStatusDropdown({ seriesId, className }: SeriesStatusDropdownProps) {
+export function SeriesStatusDropdown({ seriesId, seriesTitle = "", className }: SeriesStatusDropdownProps) {
   const { data: session } = useSession();
   const user = session?.user;
   const [isOpen, setIsOpen] = useState(false);
+  const [replaceFavoritesOpen, setReplaceFavoritesOpen] = useState(false);
+  const [pendingFavorites, setPendingFavorites] = useState<FavoriteItem[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch current status
   const { data: currentStatus, isLoading: isStatusLoading } = useSeriesStatus(user?.id, seriesId);
 
-  // Update status mutation
+  // Update status mutation (for watching / seen / watchlist)
   const updateStatus = useUpdateSeriesStatus();
+
+  // Toggle favorite mutation (for the ranked favorites system)
+  const toggleFavorite = useToggleFavoriteFromSeriesPage();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -106,11 +115,26 @@ export function SeriesStatusDropdown({ seriesId, className }: SeriesStatusDropdo
   }, []);
 
   // Handle status toggle
-  const handleStatusToggle = (statusKey: StatusKey) => {
+  const handleStatusToggle = async (statusKey: StatusKey) => {
     if (!user?.id) return;
 
-    const newValue = !currentStatus?.[statusKey];
+    if (statusKey === "isFavorite") {
+      // Route through the ranked favorites system (UserFavorite model)
+      const result = await toggleFavorite.mutateAsync({
+        userId: user.id,
+        seriesId,
+      });
 
+      if (result.action === "full") {
+        setPendingFavorites(result.currentFavorites);
+        setReplaceFavoritesOpen(true);
+        setIsOpen(false);
+      }
+      return;
+    }
+
+    // For watching / seen / watchlist: use the normal UserSeriesStatus toggle
+    const newValue = !currentStatus?.[statusKey];
     updateStatus.mutate({
       userId: user.id,
       seriesId,
@@ -168,123 +192,138 @@ export function SeriesStatusDropdown({ seriesId, className }: SeriesStatusDropdo
 
   const buttonContent = getButtonContent();
   const ButtonIcon = buttonContent.icon;
+  const isMutating = updateStatus.isPending || toggleFavorite.isPending;
 
   return (
-    <div ref={dropdownRef} className={cn("relative", className)}>
-      {/* Trigger Button */}
-      <button
-        onClick={() => user && setIsOpen(!isOpen)}
-        disabled={!user}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-300",
-          "bg-black/40 backdrop-blur-md border",
-          user
-            ? "border-white/10 hover:bg-black/60 hover:border-white/20 hover:scale-105"
-            : "border-white/5 cursor-not-allowed opacity-70",
-          isOpen && "bg-black/60 border-white/20"
-        )}
-      >
-        <ButtonIcon
+    <>
+      <div ref={dropdownRef} className={cn("relative", className)}>
+        {/* Trigger Button */}
+        <button
+          onClick={() => user && setIsOpen(!isOpen)}
+          disabled={!user}
           className={cn(
-            "w-4 h-4 transition-all",
-            buttonContent.color,
-            buttonContent.spin && "animate-spin"
-          )}
-        />
-        <span className={cn("text-sm font-medium", buttonContent.color)}>
-          {buttonContent.label}
-        </span>
-        {user && (
-          <ChevronDown
-            className={cn(
-              "w-4 h-4 text-zinc-400 transition-transform duration-200",
-              isOpen && "rotate-180"
-            )}
-          />
-        )}
-      </button>
-
-      {/* Dropdown Menu */}
-      {isOpen && user && (
-        <div
-          className={cn(
-            "absolute top-full right-0 mt-2 w-64 z-50",
-            "rounded-xl border border-zinc-800 bg-zinc-900/95 backdrop-blur-xl",
-            "shadow-2xl shadow-black/50",
-            "animate-in fade-in slide-in-from-top-2 duration-200"
+            "flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-300",
+            "bg-black/40 backdrop-blur-md border",
+            user
+              ? "border-white/10 hover:bg-black/60 hover:border-white/20 hover:scale-105"
+              : "border-white/5 cursor-not-allowed opacity-70",
+            isOpen && "bg-black/60 border-white/20"
           )}
         >
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-zinc-800">
-            <p className="text-sm font-semibold text-zinc-200">Add to your lists</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Select one or more options</p>
-          </div>
+          <ButtonIcon
+            className={cn(
+              "w-4 h-4 transition-all",
+              buttonContent.color,
+              buttonContent.spin && "animate-spin"
+            )}
+          />
+          <span className={cn("text-sm font-medium", buttonContent.color)}>
+            {buttonContent.label}
+          </span>
+          {user && (
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 text-zinc-400 transition-transform duration-200",
+                isOpen && "rotate-180"
+              )}
+            />
+          )}
+        </button>
 
-          {/* Options */}
-          <div className="p-2">
-            {STATUS_OPTIONS.map((option) => {
-              const isActive = currentStatus?.[option.key];
-              const Icon = option.icon;
-              const isUpdating = updateStatus.isPending;
+        {/* Dropdown Menu */}
+        {isOpen && user && (
+          <div
+            className={cn(
+              "absolute top-full right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] z-50",
+              "rounded-xl border border-zinc-800 bg-zinc-900/95 backdrop-blur-xl",
+              "shadow-2xl shadow-black/50",
+              "animate-in fade-in slide-in-from-top-2 duration-200"
+            )}
+          >
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-zinc-800">
+              <p className="text-sm font-semibold text-zinc-200">Add to your lists</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Select one or more options</p>
+            </div>
 
-              return (
-                <button
-                  key={option.key}
-                  onClick={() => handleStatusToggle(option.key)}
-                  disabled={isUpdating}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                    "hover:bg-zinc-800/50",
-                    isActive && option.activeColor,
-                    isUpdating && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {/* Icon */}
-                  <div
+            {/* Options */}
+            <div className="p-2">
+              {STATUS_OPTIONS.map((option) => {
+                const isActive = currentStatus?.[option.key];
+                const Icon = option.icon;
+
+                return (
+                  <button
+                    key={option.key}
+                    onClick={() => handleStatusToggle(option.key)}
+                    disabled={isMutating}
                     className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
-                      isActive ? "bg-white/10" : "bg-zinc-800"
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                      "hover:bg-zinc-800/50",
+                      isActive && option.activeColor,
+                      isMutating && "opacity-50 cursor-not-allowed"
                     )}
                   >
-                    <Icon className={cn("w-4 h-4", isActive ? option.color : "text-zinc-400")} />
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex-1 text-left">
-                    <p
+                    {/* Icon */}
+                    <div
                       className={cn(
-                        "text-sm font-medium transition-colors",
-                        isActive ? "text-white" : "text-zinc-300"
+                        "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                        isActive ? "bg-white/10" : "bg-zinc-800"
                       )}
                     >
-                      {option.label}
-                    </p>
-                  </div>
+                      <Icon className={cn("w-4 h-4", isActive ? option.color : "text-zinc-400")} />
+                    </div>
 
-                  {/* Check indicator */}
-                  <div
-                    className={cn(
-                      "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-                      isActive
-                        ? `${option.color} border-current`
-                        : "border-zinc-600"
-                    )}
-                  >
-                    {isActive && <Check className="w-3 h-3" />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                    {/* Label */}
+                    <div className="flex-1 text-left">
+                      <p
+                        className={cn(
+                          "text-sm font-medium transition-colors",
+                          isActive ? "text-white" : "text-zinc-300"
+                        )}
+                      >
+                        {option.label}
+                      </p>
+                    </div>
 
-          {/* Footer hint */}
-          <div className="px-4 py-2.5 border-t border-zinc-800 bg-zinc-900/50">
-            <p className="text-xs text-zinc-500 text-center">
-              Changes are saved automatically
-            </p>
+                    {/* Check indicator */}
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                        isActive
+                          ? `${option.color} border-current`
+                          : "border-zinc-600"
+                      )}
+                    >
+                      {isActive && <Check className="w-3 h-3" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer hint */}
+            <div className="px-4 py-2.5 border-t border-zinc-800 bg-zinc-900/50">
+              <p className="text-xs text-zinc-500 text-center">
+                Changes are saved automatically
+              </p>
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Replace Favorite Dialog — shown when all 4 slots are full */}
+      {user && (
+        <ReplaceFavoriteDialog
+          isOpen={replaceFavoritesOpen}
+          onClose={() => setReplaceFavoritesOpen(false)}
+          userId={user.id}
+          newSeriesId={seriesId}
+          newSeriesTitle={seriesTitle}
+          currentFavorites={pendingFavorites}
+          onReplaceComplete={() => setReplaceFavoritesOpen(false)}
+        />
       )}
-    </div>
+    </>
   );
 }

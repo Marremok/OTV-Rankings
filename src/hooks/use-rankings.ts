@@ -1,7 +1,8 @@
 "use client"
 
 import { getSeries, getTop10Series, getTop100Series } from "@/lib/actions/series"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getTopCharacters } from "@/lib/actions/characters"
+import { useQuery } from "@tanstack/react-query";
 
 
 export function useGetSeries() {
@@ -29,4 +30,18 @@ export function useGetTop100Series() {
   });
 
   return result;
+};
+
+export function useGetTop10Characters() {
+  return useQuery({
+    queryKey: ["getTop10Characters"],
+    queryFn: () => getTopCharacters(10),
+  });
+};
+
+export function useGetTop100Characters() {
+  return useQuery({
+    queryKey: ["getTop100Characters"],
+    queryFn: () => getTopCharacters(100),
+  });
 };

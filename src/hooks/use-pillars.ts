@@ -7,12 +7,16 @@ import {
   createRatingPillar,
   getUserRatingPillars,
   getUserRatingsForMultipleSeries,
+  getUserRatingsForMultipleCharacters,
   getPillarCount,
   editPillar,
   deletePillar,
+  createCharacterRatingPillar,
+  getUserCharacterRatingPillars,
   CreatePillarInput,
   CreateRatingPillarInput,
   EditPillarInput,
+  CreateCharacterRatingPillarInput,
 } from "@/lib/actions/pillars"
 import {
   createQuestion,
@@ -20,7 +24,7 @@ import {
   deleteQuestion,
   CreateQuestionInput,
 } from "@/lib/actions/questions"
-import { getSeriesPillarScoresBySlug } from "@/lib/actions/scoring"
+import { getSeriesPillarScoresBySlug, getCharacterPillarScoresBySlug } from "@/lib/actions/scoring"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { mediaType } from "@/generated/prisma/enums"
 
@@ -231,6 +235,68 @@ export function useGetSeriesPillarScores(slug: string | undefined) {
   return useQuery({
     queryKey: ["seriesPillarScores", slug],
     queryFn: () => getSeriesPillarScoresBySlug(slug!),
+    enabled: !!slug,
+  })
+}
+
+// ============================================
+// CHARACTER RATING PILLAR HOOKS
+// ============================================
+
+/**
+ * Hook for creating/updating a user's CHARACTER rating pillar.
+ * Mirrors useCreateRatingPillar but for characters.
+ */
+export function useCreateCharacterRatingPillar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateCharacterRatingPillarInput) => createCharacterRatingPillar(input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["userCharacterRatingPillars", variables.userId, variables.characterId],
+      })
+    },
+    onError: (error) => console.error("Error while saving character rating:", error),
+  })
+}
+
+/**
+ * Hook for fetching a user's existing character rating pillars.
+ * Enabled only when both userId and characterId are present.
+ */
+export function useGetUserCharacterRatingPillars(
+  userId: string | undefined,
+  characterId: string | undefined
+) {
+  return useQuery({
+    queryKey: ["userCharacterRatingPillars", userId, characterId],
+    queryFn: () => getUserCharacterRatingPillars(userId!, characterId!),
+    enabled: !!userId && !!characterId,
+  })
+}
+
+/**
+ * Hook for fetching a user's ratings across multiple characters.
+ * Used for the character ranking page to show rating status per card.
+ * Mirrors useGetUserRatingsForMultipleSeries.
+ */
+export function useGetUserRatingsForMultipleCharacters(userId: string | undefined, characterIds: string[]) {
+  return useQuery({
+    queryKey: ["userRatingsMultipleCharacters", userId, characterIds],
+    queryFn: () => getUserRatingsForMultipleCharacters(userId!, characterIds),
+    enabled: !!userId && characterIds.length > 0,
+  })
+}
+
+/**
+ * Hook for fetching aggregated pillar scores for a character by slug.
+ * Used by CharacterRatingSummary to display community scores.
+ */
+export function useGetCharacterPillarScores(slug: string | undefined) {
+  return useQuery({
+    queryKey: ["characterPillarScores", slug],
+    queryFn: () => getCharacterPillarScoresBySlug(slug!),
     enabled: !!slug,
   })
 }

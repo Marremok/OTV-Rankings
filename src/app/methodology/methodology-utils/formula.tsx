@@ -15,7 +15,7 @@ export function FormulaSection() {
     <div className="relative py-16">
       {/* Title */}
       <div className="text-center mb-12">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/10 to-primary/5 rounded-full border border-primary/20 backdrop-blur-sm mb-4">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-primary/10 to-primary/5 rounded-full border border-primary/20 backdrop-blur-sm mb-4">
           <Calculator className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-primary tracking-wide uppercase">
             Scoring Formula
@@ -25,8 +25,8 @@ export function FormulaSection() {
           Weighted Average Calculation
         </h2>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          Every score matters, but some questions and pillars carry more weight to ensure accurate
-          ratings.
+          Every score matters, but some questions and categories carry more weight to ensure
+          accurate, meaningful ratings.
         </p>
       </div>
 
@@ -147,7 +147,7 @@ export function FormulaSection() {
               <span className="text-zinc-200 font-mono">9.0 × 1.0 = 9.0</span>
             </div>
             <div className="flex items-center justify-between py-3 mt-2 bg-zinc-800/30 rounded-lg px-3">
-              <span className="text-zinc-300 font-medium">Pillar Score:</span>
+              <span className="text-zinc-300 font-medium">Category Score:</span>
               <span className="text-primary font-mono font-bold">
                 (16.0 + 10.5 + 9.0) / (2.0 + 1.5 + 1.0) = 7.89
               </span>

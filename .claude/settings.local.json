@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npx prisma:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(ls -la \"c:\\\\Users\\\\maxny\\\\Desktop\\\\otv-rankings\\\\src\\\\app\"\" 2>/dev/null | grep -E \"sign)",
+      "Bash(auth)",
+      "Bash(user \")",
+      "Bash(ls -la \"c:\\\\Users\\\\maxny\\\\Desktop\\\\otv-rankings\\\\src\\\\components\\\\profile\"\" 2>/dev/null || echo \"Directory not found \")"
     ]
   }
 }

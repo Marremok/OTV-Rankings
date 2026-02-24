@@ -486,3 +486,274 @@ export async function getSeriesPillarScoresBySlug(slug: string) {
     throw new Error("Failed to get pillar scores")
   }
 }
+
+// ============================================
+// CHARACTER SCORING (mirrors series scoring)
+// ============================================
+
+/**
+ * Gets aggregated pillar scores for a character by slug.
+ * Used by CharacterRatingSummary to display community averages.
+ */
+export async function getCharacterPillarScoresBySlug(slug: string) {
+  try {
+    const character = await prisma.character.findUnique({
+      where: { slug },
+      select: { id: true, pillarScores: true, score: true },
+    })
+
+    if (!character) {
+      throw new Error("Character not found")
+    }
+
+    return {
+      characterId:  character.id,
+      pillarScores: (character.pillarScores as unknown as SeriesPillarScores) || {},
+      overallScore: character.score,
+    }
+  } catch (error) {
+    console.error(`Error getting pillar scores for character slug ${slug}:`, error)
+    throw new Error("Failed to get character pillar scores")
+  }
+}
+
+/**
+ * Updates both pillar scores and overall score for a single character in one pass.
+ * Mirrors updateSeriesScores exactly.
+ */
+export async function updateCharacterScores(characterId: string) {
+  try {
+    // Aggregate CharacterRatingPillar rows for this character
+    const ratingPillars = await prisma.characterRatingPillar.findMany({
+      where: { characterId },
+      include: {
+        pillar: { select: { id: true, type: true, weight: true } },
+      },
+    })
+
+    const pillarGroups: Record<string, {
+      scores: number[]
+      pillarId: string
+      pillarType: string
+      pillarWeight: number
+    }> = {}
+
+    for (const rating of ratingPillars) {
+      const { type, id, weight } = rating.pillar
+      if (!pillarGroups[type]) {
+        pillarGroups[type] = { scores: [], pillarId: id, pillarType: type, pillarWeight: weight }
+      }
+      pillarGroups[type].scores.push(rating.score)
+    }
+
+    const pillarScores: SeriesPillarScores = {}
+    for (const [type, group] of Object.entries(pillarGroups)) {
+      const sum = group.scores.reduce((acc, s) => acc + s, 0)
+      pillarScores[type] = {
+        avgScore:     Math.round((sum / group.scores.length) * 100) / 100,
+        raterCount:   group.scores.length,
+        pillarId:     group.pillarId,
+        pillarType:   type,
+        pillarWeight: group.pillarWeight,
+      }
+    }
+
+    const overallScore = calculateOverallScore(pillarScores)
+
+    await prisma.character.update({
+      where: { id: characterId },
+      data: {
+        pillarScores: pillarScores as object,
+        score:        overallScore,
+        updatedAt:    new Date(),
+      },
+    })
+
+    const character = await prisma.character.findUnique({
+      where: { id: characterId },
+      select: { slug: true },
+    })
+    if (character?.slug) {
+      revalidatePath(`/characters/${character.slug}`)
+    }
+
+    return { pillarScores: pillarScores as object, overallScore }
+  } catch (error) {
+    console.error(`Error updating scores for character ${characterId}:`, error)
+    throw new Error("Failed to update character scores")
+  }
+}
+
+/**
+ * Updates scores for ALL characters in the database.
+ * Batch-optimized to avoid N+1 queries. Call from cron job.
+ */
+export async function updateAllCharacterScores() {
+  console.log("[Scoring] Starting batch score update for all characters...")
+  const startTime = Date.now()
+
+  try {
+    const allCharacters = await prisma.character.findMany({
+      select: { id: true, slug: true },
+    })
+
+    const allRatingPillars = await prisma.characterRatingPillar.findMany({
+      include: {
+        pillar: { select: { id: true, type: true, weight: true } },
+      },
+    })
+
+    const ratingsByCharacterId: Record<string, typeof allRatingPillars> = {}
+    for (const r of allRatingPillars) {
+      if (!ratingsByCharacterId[r.characterId]) ratingsByCharacterId[r.characterId] = []
+      ratingsByCharacterId[r.characterId].push(r)
+    }
+
+    const results: { characterId: string; slug: string | null; score: number; pillarCount: number }[] = []
+
+    for (const character of allCharacters) {
+      const ratings = ratingsByCharacterId[character.id] || []
+
+      const pillarGroups: Record<string, {
+        scores: number[]
+        pillarId: string
+        pillarType: string
+        pillarWeight: number
+      }> = {}
+
+      for (const r of ratings) {
+        const { type, id, weight } = r.pillar
+        if (!pillarGroups[type]) {
+          pillarGroups[type] = { scores: [], pillarId: id, pillarType: type, pillarWeight: weight }
+        }
+        pillarGroups[type].scores.push(r.score)
+      }
+
+      const pillarScores: SeriesPillarScores = {}
+      for (const [type, group] of Object.entries(pillarGroups)) {
+        const sum = group.scores.reduce((acc, s) => acc + s, 0)
+        pillarScores[type] = {
+          avgScore:     Math.round((sum / group.scores.length) * 100) / 100,
+          raterCount:   group.scores.length,
+          pillarId:     group.pillarId,
+          pillarType:   type,
+          pillarWeight: group.pillarWeight,
+        }
+      }
+
+      const overallScore = calculateOverallScore(pillarScores)
+
+      await prisma.character.update({
+        where: { id: character.id },
+        data: {
+          pillarScores: Object.keys(pillarScores).length > 0 ? (pillarScores as object) : Prisma.JsonNull,
+          score:        overallScore,
+          updatedAt:    new Date(),
+        },
+      })
+
+      results.push({ characterId: character.id, slug: character.slug, score: overallScore, pillarCount: Object.keys(pillarScores).length })
+    }
+
+    const duration = Date.now() - startTime
+    console.log(`[Scoring] Character batch update complete in ${duration}ms. Updated ${results.length} characters.`)
+
+    revalidatePath("/rankings/characters")
+
+    return { success: true, updatedCount: results.length, durationMs: duration, results }
+  } catch (error) {
+    console.error("[Scoring] Character batch update failed:", error)
+    throw new Error("Failed to update all character scores")
+  }
+}
+
+/**
+ * Updates rankings for all characters based on their scores.
+ * Assigns ranking 1 to highest score, etc. Mirrors updateAllSeriesRankings.
+ */
+export async function updateAllCharacterRankings() {
+  console.log("[Scoring] Updating character rankings...")
+  const startTime = Date.now()
+
+  try {
+    const allCharacters = await prisma.character.findMany({
+      select: { id: true, score: true },
+      orderBy: { score: "desc" },
+    })
+
+    for (let i = 0; i < allCharacters.length; i++) {
+      await prisma.character.update({
+        where: { id: allCharacters[i].id },
+        data: { ranking: i + 1 },
+      })
+    }
+
+    const duration = Date.now() - startTime
+    console.log(`[Scoring] Character rankings updated in ${duration}ms. Ranked ${allCharacters.length} characters.`)
+
+    revalidatePath("/rankings/characters")
+
+    return { success: true, rankedCount: allCharacters.length, durationMs: duration }
+  } catch (error) {
+    console.error("[Scoring] Character ranking update failed:", error)
+    throw new Error("Failed to update character rankings")
+  }
+}
+
+/**
+ * Master function: updates both scores and rankings for all characters.
+ * Call from cron job alongside updateAllSeriesScoresAndRankings.
+ */
+export async function updateAllCharacterScoresAndRankings() {
+  console.log("[Scoring] Starting full character score and ranking update...")
+  const startTime = Date.now()
+
+  try {
+    const scoresResult  = await updateAllCharacterScores()
+    const rankingsResult = await updateAllCharacterRankings()
+    const totalDuration  = Date.now() - startTime
+
+    console.log(`[Scoring] Full character update complete in ${totalDuration}ms`)
+
+    return { success: true, totalDurationMs: totalDuration, scores: scoresResult, rankings: rankingsResult }
+  } catch (error) {
+    console.error("[Scoring] Full character update failed:", error)
+    if (error instanceof Error) throw new Error(`Failed to update character scores and rankings: ${error.message}`)
+    throw error
+  }
+}
+
+// ============================================
+// GLOBAL UPDATE (all media types)
+// ============================================
+
+/**
+ * Master function: updates scores and rankings for ALL media types (series + characters).
+ * This is the recommended function to call from cron jobs.
+ * Runs series and character updates in parallel for efficiency.
+ */
+export async function updateAllScoresAndRankings() {
+  console.log("[Scoring] Starting global score and ranking update (series + characters)...")
+  const startTime = Date.now()
+
+  try {
+    const [seriesResult, characterResult] = await Promise.all([
+      updateAllSeriesScoresAndRankings(),
+      updateAllCharacterScoresAndRankings(),
+    ])
+
+    const totalDuration = Date.now() - startTime
+    console.log(`[Scoring] Global update complete in ${totalDuration}ms`)
+
+    return {
+      success: true,
+      totalDurationMs: totalDuration,
+      series: seriesResult,
+      characters: characterResult,
+    }
+  } catch (error) {
+    console.error("[Scoring] Global update failed:", error)
+    if (error instanceof Error) throw new Error(`Failed to update all scores and rankings: ${error.message}`)
+    throw error
+  }
+}

@@ -101,7 +101,7 @@ export default async function SuccessPage({
 
           {/* Subtle footer */}
           <p className="text-xs text-zinc-600 mt-10">
-            A confirmation has been sent to your email.
+            Your donation has been securely processed via Stripe.
           </p>
         </div>
       </section>

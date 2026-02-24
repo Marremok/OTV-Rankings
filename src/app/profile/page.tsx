@@ -8,43 +8,29 @@ import {
   Calendar,
   Star,
   BarChart3,
-  Tv,
-  Sparkles,
-  ChevronRight,
-  Settings,
-  Award,
   TrendingUp,
-  Clock,
-  Heart,
-  Loader2,
+  TrendingDown,
+  Trophy,
+  Settings,
   Camera,
-  List,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import {
   useUserProfileData,
-  useUserHighestRating,
   useUserImages,
   useUpdateProfileImage,
   useUpdateHeroImage,
-  useUserSeriesStatusCounts,
 } from "@/hooks/use-user-profile";
 
-// Import components from profile-utils folder
 import {
   StatCard,
-  RecentRatingCard,
-  PillarBreakdownCard,
-  RecentRatingSkeleton,
-  PillarBreakdownSkeleton,
-  HighestRatingCard,
   ImageUploadDialog,
   CurrentlyWatchingSection,
-  PlaceholderSection,
-  ProfileMenu,
+  FavoriteSection,
+  MediaListPreviewSection,
   getUserInitials,
-} from "./profile-utils";
+} from "@/components/profile";
 
 // ============================================
 // MAIN PROFILE PAGE COMPONENT
@@ -55,34 +41,21 @@ export default function ProfilePage() {
   const router = useRouter();
   const user = session?.user;
 
-  // State for image upload dialogs
   const [showProfileUpload, setShowProfileUpload] = useState(false);
   const [showHeroUpload, setShowHeroUpload] = useState(false);
 
-  // Fetch profile data from database
   const { data: profileData, isLoading: isProfileLoading } = useUserProfileData(user?.id);
-
-  // Fetch highest rating
-  const { data: highestRating, isLoading: isHighestRatingLoading } = useUserHighestRating(user?.id);
-
-  // Fetch user images
   const { data: userImages } = useUserImages(user?.id);
 
-  // Fetch series status counts
-  const { data: statusCounts, isLoading: isStatusCountsLoading } = useUserSeriesStatusCounts(user?.id);
-
-  // Image upload mutations
   const updateProfileImage = useUpdateProfileImage();
   const updateHeroImage = useUpdateHeroImage();
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!isSessionPending && !user) {
       router.push("/");
     }
   }, [isSessionPending, user, router]);
 
-  // Loading state for session
   if (isSessionPending) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -91,21 +64,18 @@ export default function ProfilePage() {
     );
   }
 
-  // Not authenticated
   if (!user) {
     return null;
   }
 
-  // Computed values
   const initials = getUserInitials(user.name, user.email);
   const joinDate = profileData?.joinDate
     ? new Date(profileData.joinDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : "Recently";
-  const stats = profileData?.stats ?? { totalRatings: 0, seriesRated: 0, avgScore: 0 };
+  const stats = profileData?.stats ?? null;
   const displayImage = userImages?.profileImage || user.image;
   const heroImage = userImages?.heroImage;
 
-  // Handlers
   const handleProfileImageUpload = (imageUrl: string) => {
     if (user?.id) updateProfileImage.mutate({ userId: user.id, imageUrl });
   };
@@ -116,23 +86,16 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 relative selection:bg-primary/30">
-      {/* --- NY BAKGRUND: Ambient Glow & Vignette --- */}
+      {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* Huvudsken uppe till höger */}
         <div className="absolute -top-[20%] -right-[10%] w-200 h-200 bg-primary/15 rounded-full blur-[140px] opacity-60" />
-        
-        {/* Sekundärt sken nere till vänster */}
         <div className="absolute -bottom-[20%] -left-[10%] w-200 h-200 bg-indigo-600/10 rounded-full blur-[160px] opacity-60" />
-        
-        {/* Accent i mitten (subtil) */}
         <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-150 h-150 bg-primary/5 rounded-full blur-[120px]" />
-
-        {/* Vinjett: Gör kanterna mörkare för att fokusera på innehållet */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
       </div>
 
       <div className="relative z-10">
-        {/* Hero Banner Section */}
+        {/* Hero Banner */}
         <HeroBanner heroImage={heroImage} onEditClick={() => setShowHeroUpload(true)} />
 
         {/* Profile Header */}
@@ -145,51 +108,50 @@ export default function ProfilePage() {
         />
 
         {/* Stats Section */}
-        <StatsSection stats={stats} highestRating={highestRating} isLoading={isProfileLoading} isHighestRatingLoading={isHighestRatingLoading} />
+        <StatsSection stats={stats} isLoading={isProfileLoading} />
 
-        {/* Currently Watching Section - Med glas-effekt */}
-        <section className="py-12 px-6 border-t border-white/5 bg-zinc-900/20 backdrop-blur-sm">
+        {/* Currently Watching */}
+        <section className="py-8 px-4 md:py-12 md:px-6 border-t border-white/5 bg-zinc-900/20 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto">
             <CurrentlyWatchingSection userId={user?.id} />
           </div>
         </section>
 
-        {/* Main Content Grid */}
-        <MainContentSection profileData={profileData} isLoading={isProfileLoading} />
-
-        {/* Bottom Menu Section - Med glas-effekt */}
-        <section className="py-12 px-6 border-t border-white/5 bg-zinc-900/20 backdrop-blur-sm">
+        {/* Favorite Shows */}
+        <section className="py-8 px-4 md:py-12 md:px-6 border-t border-white/5 bg-zinc-900/20 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-              <List className="w-5 h-5 text-primary" />
-              Your Lists
-            </h2>
-            <ProfileMenu
-              counts={statusCounts ?? { watchlist: 0, seen: 0, watching: 0, favorites: 0 }}
-              isLoading={isStatusCountsLoading}
+            <FavoriteSection userId={user.id} isOwner={true} mediaType="SERIES" title="Favorite Shows" />
+          </div>
+        </section>
+
+        {/* Favorite Characters */}
+        <section className="py-8 px-4 md:py-12 md:px-6 border-t border-white/5">
+          <div className="max-w-5xl mx-auto">
+            <FavoriteSection userId={user.id} isOwner={true} mediaType="CHARACTER" title="Favorite Characters" />
+          </div>
+        </section>
+
+        {/* Seen */}
+        <section className="py-8 px-4 md:py-12 md:px-6 border-t border-white/5 bg-zinc-900/20 backdrop-blur-sm">
+          <div className="max-w-5xl mx-auto">
+            <MediaListPreviewSection
+              userId={user.id}
+              status="seen"
+              title="Seen"
+              viewAllHref="/profile/seen"
             />
           </div>
         </section>
 
-        {/* Future Features Section */}
-        <section className="py-12 px-6 border-t border-white/5">
+        {/* Watchlist */}
+        <section className="py-8 px-4 md:py-12 md:px-6 border-t border-white/5">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              Coming Soon
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <PlaceholderSection
-                icon={Award}
-                title="Achievements"
-                description="Unlock badges and achievements as you rate more shows and reach milestones."
-              />
-              <PlaceholderSection
-                icon={Heart}
-                title="Social Features"
-                description="Follow friends, share your lists, and see what they're watching."
-              />
-            </div>
+            <MediaListPreviewSection
+              userId={user.id}
+              status="watchlist"
+              title="Watchlist"
+              viewAllHref="/profile/watchlist"
+            />
           </div>
         </section>
       </div>
@@ -216,7 +178,7 @@ export default function ProfilePage() {
 }
 
 // ============================================
-// SUB-COMPONENTS (kept in page for simplicity)
+// SUB-COMPONENTS
 // ============================================
 
 function HeroBanner({ heroImage, onEditClick }: { heroImage: string | null | undefined; onEditClick: () => void }) {
@@ -301,13 +263,20 @@ function ProfileHeader({ user, displayImage, initials, joinDate, onEditAvatarCli
 }
 
 interface StatsSectionProps {
-  stats: { totalRatings: number; seriesRated: number; avgScore: number };
-  highestRating: any;
-  isLoading: boolean;
-  isHighestRatingLoading: boolean;
+  stats: {
+    totalRatings: number
+    avgScore: number
+    highestRating: { score: number; title: string; slug: string | null } | null
+    lowestRating: { score: number; title: string; slug: string | null } | null
+  } | null
+  isLoading: boolean
 }
 
-function StatsSection({ stats, highestRating, isLoading, isHighestRatingLoading }: StatsSectionProps) {
+function StatsSection({ stats, isLoading }: StatsSectionProps) {
+  const avgDisplay = stats && stats.avgScore > 0 ? stats.avgScore.toFixed(2) : "—"
+  const highDisplay = stats?.highestRating ? stats.highestRating.score.toFixed(2) : "—"
+  const lowDisplay = stats?.lowestRating ? stats.lowestRating.score.toFixed(2) : "—"
+
   return (
     <section className="py-10 px-6">
       <div className="max-w-5xl mx-auto">
@@ -316,109 +285,41 @@ function StatsSection({ stats, highestRating, isLoading, isHighestRatingLoading 
           Your Stats
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Star} label="Total Ratings" value={stats.totalRatings} subtext="across all pillars" delay={0} isLoading={isLoading} />
-          <StatCard icon={Tv} label="Series Rated" value={stats.seriesRated} subtext="unique shows" delay={100} isLoading={isLoading} />
+          <StatCard
+            icon={Star}
+            label="Total Ratings"
+            value={stats?.totalRatings ?? 0}
+            subtext="across all media"
+            delay={0}
+            isLoading={isLoading}
+          />
           <StatCard
             icon={TrendingUp}
             label="Average Score"
-            value={stats.avgScore > 0 ? stats.avgScore.toFixed(1) : "—"}
+            value={avgDisplay}
             subtext="your mean rating"
             color="text-emerald-400"
+            delay={100}
+            isLoading={isLoading}
+          />
+          <StatCard
+            icon={Trophy}
+            label="Highest Rating"
+            value={highDisplay}
+            subtext={stats?.highestRating?.title ?? "No ratings yet"}
+            color="text-amber-400"
             delay={200}
             isLoading={isLoading}
           />
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: "300ms" }}>
-            <HighestRatingCard rating={highestRating ?? null} isLoading={isHighestRatingLoading} />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-interface MainContentSectionProps {
-  profileData: any;
-  isLoading: boolean;
-}
-
-function MainContentSection({ profileData, isLoading }: MainContentSectionProps) {
-  return (
-    <section className="py-10 px-6 border-t border-zinc-800/50">
-      <div className="max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Recent Ratings */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
-                Recent Ratings
-              </h2>
-              {profileData?.recentRatings && profileData.recentRatings.length > 0 && (
-                <Link href="/profile/ratings" className="text-sm text-primary hover:underline flex items-center gap-1">
-                  View all
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
-              )}
-            </div>
-
-            {isLoading && (
-              <div className="space-y-3">
-                {[0, 1, 2].map((i) => (
-                  <RecentRatingSkeleton key={i} index={i} />
-                ))}
-              </div>
-            )}
-
-            {!isLoading && profileData?.recentRatings && profileData.recentRatings.length > 0 && (
-              <div className="space-y-3">
-                {profileData.recentRatings.map((rating: any, index: number) => (
-                  <RecentRatingCard key={rating.id} rating={rating} index={index} />
-                ))}
-              </div>
-            )}
-
-            {!isLoading && (!profileData?.recentRatings || profileData.recentRatings.length === 0) && (
-              <div className="rounded-xl border border-dashed border-zinc-800/60 bg-zinc-900/20 p-12 text-center">
-                <Star className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-zinc-400 mb-2">No ratings yet</h3>
-                <p className="text-sm text-zinc-600 mb-6">Start rating TV series to build your profile</p>
-                <Link href="/rankings">
-                  <Button>Browse Rankings</Button>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column - Pillar Breakdown */}
-          <div className="space-y-6">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              Pillar Breakdown
-            </h2>
-
-            {isLoading && (
-              <div className="space-y-3">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <PillarBreakdownSkeleton key={i} index={i} />
-                ))}
-              </div>
-            )}
-
-            {!isLoading && profileData?.pillarBreakdown && profileData.pillarBreakdown.length > 0 && (
-              <div className="space-y-3">
-                {profileData.pillarBreakdown.map((pillar: any, index: number) => (
-                  <PillarBreakdownCard key={pillar.pillarId} pillar={pillar} index={index} />
-                ))}
-              </div>
-            )}
-
-            {!isLoading && (!profileData?.pillarBreakdown || profileData.pillarBreakdown.length === 0) && (
-              <div className="rounded-xl border border-dashed border-zinc-800/60 bg-zinc-900/20 p-6 text-center">
-                <Sparkles className="w-8 h-8 text-zinc-700 mx-auto mb-3" />
-                <p className="text-sm text-zinc-500">Rate series to see your pillar breakdown</p>
-              </div>
-            )}
-          </div>
+          <StatCard
+            icon={TrendingDown}
+            label="Lowest Rating"
+            value={lowDisplay}
+            subtext={stats?.lowestRating?.title ?? "No ratings yet"}
+            color="text-zinc-400"
+            delay={300}
+            isLoading={isLoading}
+          />
         </div>
       </div>
     </section>

@@ -4,6 +4,7 @@
 import LoadingUI from "@/components/admin/loadingUI";
 import SeriesManagement from "@/components/admin/SeriesManagement";
 import PillarManagement from "@/components/admin/PillarManagement";
+import CharacterManagement from "@/components/admin/CharacterManagement";
 import Navbar from "@/components/Navbar"
 
 import { useSession } from "@/lib/auth-client";
@@ -29,9 +30,9 @@ function AdminDashboardClient() {
 
   return (
     <div>
-      <div className="max-w-7xl mx-auto px-6 py-8 pt-10">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8 pt-8 md:pt-10">
         {/* ADMIN WELCOME SECTION */}
-        <div className="mb-12 flex items-center justify-between bg-linear-to-br from-primary/10 via-primary/5 to-background rounded-3xl p-8 border border-primary/20">
+        <div className="mb-12 flex items-center justify-between bg-linear-to-br from-primary/10 via-primary/5 to-background rounded-3xl p-5 md:p-8 border border-primary/20">
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
               <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
@@ -54,6 +55,7 @@ function AdminDashboardClient() {
           </div>
         </div>
         <SeriesManagement />
+        <CharacterManagement />
         <PillarManagement />
       </div>
     </div>

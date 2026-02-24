@@ -9,8 +9,8 @@ export function NavbarAuthButtons({
   setIsLogInDialogOpen,
   setIsSignUpDialogOpen,
 }: {
-  setIsLogInDialogOpen: (v: boolean) => void
-  setIsSignUpDialogOpen: (v: boolean) => void
+  setIsLogInDialogOpen: () => void
+  setIsSignUpDialogOpen: () => void
 }) {
   const { data: session, isPending } = useSession()
   const user = session?.user as any;
@@ -44,14 +44,14 @@ export function NavbarAuthButtons({
   return (
     <div className="flex items-center gap-3">
       <Button
-        onClick={() => setIsLogInDialogOpen(true)}
+        onClick={setIsLogInDialogOpen}
         variant="ghost"
       >
         Log In
       </Button>
 
       <Button
-        onClick={() => setIsSignUpDialogOpen(true)}
+        onClick={setIsSignUpDialogOpen}
         variant="default"
         className="bg-primary"
       >

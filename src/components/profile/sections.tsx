@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Tv, Lock } from "lucide-react";
+import { Play, Tv } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useUserCurrentlyWatching } from "@/hooks/use-user-profile";
@@ -11,9 +11,10 @@ import { useUserCurrentlyWatching } from "@/hooks/use-user-profile";
 
 export interface CurrentlyWatchingSectionProps {
   userId: string | undefined;
+  isOwner?: boolean;
 }
 
-export function CurrentlyWatchingSection({ userId }: CurrentlyWatchingSectionProps) {
+export function CurrentlyWatchingSection({ userId, isOwner = true }: CurrentlyWatchingSectionProps) {
   const { data: watchingList, isLoading } = useUserCurrentlyWatching(userId);
 
   if (isLoading) {
@@ -53,7 +54,9 @@ export function CurrentlyWatchingSection({ userId }: CurrentlyWatchingSectionPro
                 Nothing here yet
               </h3>
               <p className="text-sm text-zinc-600">
-                Series you're currently watching will appear here. Mark series as "Currently Watching" from any series page.
+                {isOwner
+                  ? `Series you're currently watching will appear here. Mark series as "Currently Watching" from any series page.`
+                  : "They haven't added anything here yet."}
               </p>
             </div>
           </div>
@@ -109,42 +112,6 @@ export function CurrentlyWatchingSection({ userId }: CurrentlyWatchingSectionPro
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ============================================
-// COMPONENT: Placeholder Section
-// ============================================
-
-export interface PlaceholderSectionProps {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  comingSoon?: boolean;
-}
-
-export function PlaceholderSection({
-  icon: Icon,
-  title,
-  description,
-  comingSoon = true,
-}: PlaceholderSectionProps) {
-  return (
-    <div className="relative rounded-xl border border-dashed border-zinc-800/60 bg-zinc-900/20 p-8 text-center">
-      <div className="absolute top-3 right-3">
-        {comingSoon && (
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-zinc-800/60 text-xs text-zinc-500">
-            <Lock className="w-3 h-3" />
-            Coming Soon
-          </span>
-        )}
-      </div>
-      <div className="w-14 h-14 rounded-xl bg-zinc-800/40 flex items-center justify-center mx-auto mb-4">
-        <Icon className="w-7 h-7 text-zinc-600" />
-      </div>
-      <h3 className="text-lg font-semibold text-zinc-400 mb-2">{title}</h3>
-      <p className="text-sm text-zinc-600 max-w-sm mx-auto">{description}</p>
     </div>
   );
 }

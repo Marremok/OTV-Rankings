@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { updateAllSeriesScoresAndRankings } from "@/lib/actions/scoring"
+import { updateAllScoresAndRankings } from "@/lib/actions/scoring"
 
 /**
  * Cron Job Endpoint: Update Series Scores and Rankings
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     console.log("[Cron] Starting score update job...")
 
-    const result = await updateAllSeriesScoresAndRankings()
+    const result = await updateAllScoresAndRankings()
 
     console.log("[Cron] Score update job completed successfully")
 

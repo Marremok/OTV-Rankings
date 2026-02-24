@@ -4,10 +4,6 @@
 export { StepCard, METHODOLOGY_STEPS } from "./steps";
 export type { StepCardProps } from "./steps";
 
-// Pillar components
-export { PillarShowcase, PillarSkeleton } from "./pillars";
-export type { PillarShowcaseProps, PillarData } from "./pillars";
-
 // Formula section
 export { FormulaSection } from "./formula";
 

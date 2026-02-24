@@ -166,7 +166,7 @@ export function UserButton({
               className="group flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 transition-all duration-200 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
             >
               <User className="h-4 w-4 text-neutral-500 transition-colors group-hover:text-neutral-900 dark:text-neutral-400 dark:group-hover:text-white" />
-              Manage Account
+              Profile Page
             </button>
             <button
               onClick={handleSignOut}

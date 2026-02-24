@@ -3,6 +3,47 @@
 import prisma from "../prisma"
 
 // ============================================
+// PUBLIC USER PROFILE TYPES & ACTIONS
+// ============================================
+
+export interface PublicUserProfile {
+  id: string;
+  name: string;
+  image: string | null;
+  profileImage: string | null;
+  heroImage: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Fetches public profile data for a user (no sensitive info like email)
+ */
+export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile | null> {
+  try {
+    if (!userId) {
+      return null;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        profileImage: true,
+        heroImage: true,
+        createdAt: true,
+      },
+    });
+
+    return user;
+  } catch (error) {
+    console.error("Error fetching public user profile:", error);
+    return null;
+  }
+}
+
+// ============================================
 // USER PROFILE DATA TYPES
 // ============================================
 
@@ -17,25 +58,19 @@ export interface HighestRating {
   date: Date
 }
 
-export interface FavoriteRating {
-  seriesName: string
-  seriesSlug: string | null
-  pillarType: string
-  score: number
-}
-
 export interface UserProfileStats {
   totalRatings: number
-  seriesRated: number
   avgScore: number
-  favoriteRating: FavoriteRating | null
+  highestRating: { score: number; title: string; slug: string | null } | null
+  lowestRating: { score: number; title: string; slug: string | null } | null
 }
 
 export interface RecentRating {
   id: string
-  seriesName: string
-  seriesSlug: string | null
-  seriesImageUrl: string | null
+  mediaType: "SERIES" | "CHARACTER"
+  displayName: string       // series.title or character.name
+  slug: string | null
+  imageUrl: string | null
   pillarType: string
   score: number
   date: Date
@@ -76,71 +111,91 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
       throw new Error("User ID is required")
     }
 
-    // Fetch user to get join date
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { createdAt: true },
-    })
+    // Fetch user + both rating tables in parallel
+    const [user, ratingPillars, characterRatingPillars] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
+      prisma.ratingPillar.findMany({
+        where: { userId },
+        include: {
+          pillar: { select: { id: true, type: true, weight: true } },
+          series: { select: { id: true, title: true, slug: true, imageUrl: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.characterRatingPillar.findMany({
+        where: { userId },
+        include: {
+          pillar: { select: { id: true, type: true, weight: true } },
+          character: { select: { id: true, name: true, slug: true, posterUrl: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
+    ])
 
     if (!user) {
       return null
     }
 
-    // Fetch all user's rating pillars with related data
-    const ratingPillars = await prisma.ratingPillar.findMany({
-      where: { userId },
-      include: {
-        pillar: {
-          select: {
-            id: true,
-            type: true,
-            weight: true,
-          },
-        },
-        series: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            imageUrl: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    })
+    const totalRatings = ratingPillars.length + characterRatingPillars.length
 
-    // Calculate stats
-    const totalRatings = ratingPillars.length
-    const uniqueSeriesIds = new Set(ratingPillars.map((rp) => rp.seriesId))
-    const seriesRated = uniqueSeriesIds.size
-
-    // Calculate average score
+    // Combined average score
+    const allScores = [
+      ...ratingPillars.map((rp) => rp.score),
+      ...characterRatingPillars.map((crp) => crp.score),
+    ]
     const avgScore =
-      totalRatings > 0
-        ? Math.round(
-            (ratingPillars.reduce((sum, rp) => sum + rp.score, 0) / totalRatings) * 100
-          ) / 100
+      allScores.length > 0
+        ? Math.round((allScores.reduce((s, v) => s + v, 0) / allScores.length) * 100) / 100
         : 0
 
-    // Calculate pillar breakdown and find top pillar
-    const pillarMap: Record<
-      string,
-      { pillarId: string; scores: number[]; weight: number }
-    > = {}
+    // Highest & lowest rating across both tables
+    const allRatingsForMinMax = [
+      ...ratingPillars.map((rp) => ({
+        score: rp.score,
+        title: rp.series.title,
+        slug: rp.series.slug,
+      })),
+      ...characterRatingPillars.map((crp) => ({
+        score: crp.score,
+        title: crp.character.name,
+        slug: crp.character.slug,
+      })),
+    ]
 
+    let highestRating: UserProfileStats["highestRating"] = null
+    let lowestRating: UserProfileStats["lowestRating"] = null
+    if (allRatingsForMinMax.length > 0) {
+      const highest = allRatingsForMinMax.reduce((max, r) => (r.score > max.score ? r : max))
+      const lowest = allRatingsForMinMax.reduce((min, r) => (r.score < min.score ? r : min))
+      highestRating = {
+        score: Math.round(highest.score * 100) / 100,
+        title: highest.title,
+        slug: highest.slug,
+      }
+      lowestRating = {
+        score: Math.round(lowest.score * 100) / 100,
+        title: lowest.title,
+        slug: lowest.slug,
+      }
+    }
+
+    // Pillar breakdown (series pillars only — characters use same pillar types)
+    const pillarMap: Record<string, { pillarId: string; scores: number[]; weight: number }> = {}
     for (const rp of ratingPillars) {
       const type = rp.pillar.type
       if (!pillarMap[type]) {
-        pillarMap[type] = {
-          pillarId: rp.pillar.id,
-          scores: [],
-          weight: rp.pillar.weight,
-        }
+        pillarMap[type] = { pillarId: rp.pillar.id, scores: [], weight: rp.pillar.weight }
       }
       pillarMap[type].scores.push(rp.score)
     }
+    for (const crp of characterRatingPillars) {
+      const type = crp.pillar.type
+      if (!pillarMap[type]) {
+        pillarMap[type] = { pillarId: crp.pillar.id, scores: [], weight: crp.pillar.weight }
+      }
+      pillarMap[type].scores.push(crp.score)
+    }
 
-    // Build pillar breakdown array
     const pillarBreakdown: PillarBreakdown[] = Object.entries(pillarMap)
       .map(([pillarType, data]) => ({
         pillarType,
@@ -152,40 +207,35 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
           ) / 100,
         weight: data.weight,
       }))
-      .sort((a, b) => b.count - a.count) // Sort by most rated
+      .sort((a, b) => b.count - a.count)
 
-    // Find favorite rating (highest scored)
-    let favoriteRating: FavoriteRating | null = null
-    if (ratingPillars.length > 0) {
-      const highest = ratingPillars.reduce((max, rp) =>
-        rp.score > max.score ? rp : max
-      )
-      favoriteRating = {
-        seriesName: highest.series.title,
-        seriesSlug: highest.series.slug,
-        pillarType: highest.pillar.type,
-        score: Math.round(highest.score * 100) / 100,
-      }
-    }
-
-    // Build recent ratings (limit to 4)
-    const recentRatings: RecentRating[] = ratingPillars.slice(0, 4).map((rp) => ({
+    // Merge and sort recent ratings across both tables (limit 4)
+    const seriesRecent: RecentRating[] = ratingPillars.map((rp) => ({
       id: rp.id,
-      seriesName: rp.series.title,
-      seriesSlug: rp.series.slug,
-      seriesImageUrl: rp.series.imageUrl,
+      mediaType: "SERIES" as const,
+      displayName: rp.series.title,
+      slug: rp.series.slug,
+      imageUrl: rp.series.imageUrl,
       pillarType: rp.pillar.type,
       score: Math.round(rp.score * 100) / 100,
       date: rp.updatedAt,
     }))
+    const characterRecent: RecentRating[] = characterRatingPillars.map((crp) => ({
+      id: crp.id,
+      mediaType: "CHARACTER" as const,
+      displayName: crp.character.name,
+      slug: crp.character.slug,
+      imageUrl: crp.character.posterUrl,
+      pillarType: crp.pillar.type,
+      score: Math.round(crp.score * 100) / 100,
+      date: crp.updatedAt,
+    }))
+    const recentRatings = [...seriesRecent, ...characterRecent]
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 4)
 
     return {
-      stats: {
-        totalRatings,
-        seriesRated,
-        avgScore,
-        favoriteRating,
-      },
+      stats: { totalRatings, avgScore, highestRating, lowestRating },
       recentRatings,
       pillarBreakdown,
       joinDate: user.createdAt,
@@ -205,50 +255,77 @@ export async function getUserStats(userId: string): Promise<UserProfileStats | n
       throw new Error("User ID is required")
     }
 
-    // Aggregate query for stats
-    const [totalRatings, uniqueSeries, highestRating] = await Promise.all([
-      // Total rating count
-      prisma.ratingPillar.count({
-        where: { userId },
-      }),
-      // Unique series count
-      prisma.ratingPillar.groupBy({
-        by: ["seriesId"],
-        where: { userId },
-      }),
-      // Highest scored rating for favorite
-      prisma.ratingPillar.findFirst({
-        where: { userId },
-        orderBy: { score: "desc" },
-        include: {
-          series: { select: { title: true, slug: true } },
-          pillar: { select: { type: true } },
-        },
-      }),
-    ])
+    const [rpCount, crpCount, rpAvg, crpAvg, rpHigh, crpHigh, rpLow, crpLow] =
+      await Promise.all([
+        prisma.ratingPillar.count({ where: { userId } }),
+        prisma.characterRatingPillar.count({ where: { userId } }),
+        prisma.ratingPillar.aggregate({ where: { userId }, _avg: { score: true } }),
+        prisma.characterRatingPillar.aggregate({ where: { userId }, _avg: { score: true } }),
+        prisma.ratingPillar.findFirst({
+          where: { userId },
+          orderBy: { score: "desc" },
+          include: { series: { select: { title: true, slug: true } } },
+        }),
+        prisma.characterRatingPillar.findFirst({
+          where: { userId },
+          orderBy: { score: "desc" },
+          include: { character: { select: { name: true, slug: true } } },
+        }),
+        prisma.ratingPillar.findFirst({
+          where: { userId },
+          orderBy: { score: "asc" },
+          include: { series: { select: { title: true, slug: true } } },
+        }),
+        prisma.characterRatingPillar.findFirst({
+          where: { userId },
+          orderBy: { score: "asc" },
+          include: { character: { select: { name: true, slug: true } } },
+        }),
+      ])
 
-    // Get average score
-    const avgResult = await prisma.ratingPillar.aggregate({
-      where: { userId },
-      _avg: { score: true },
-    })
+    const totalRatings = rpCount + crpCount
 
-    // Build favorite rating
-    let favoriteRating: FavoriteRating | null = null
-    if (highestRating) {
-      favoriteRating = {
-        seriesName: highestRating.series.title,
-        seriesSlug: highestRating.series.slug,
-        pillarType: highestRating.pillar.type,
-        score: Math.round(highestRating.score * 100) / 100,
-      }
-    }
+    // Combined average
+    const avgScore =
+      totalRatings > 0
+        ? Math.round(
+            ((rpCount * (rpAvg._avg.score ?? 0) + crpCount * (crpAvg._avg.score ?? 0)) /
+              totalRatings) *
+              100
+          ) / 100
+        : 0
+
+    // Highest across both tables
+    const highCandidates = [
+      rpHigh ? { score: rpHigh.score, title: rpHigh.series.title, slug: rpHigh.series.slug } : null,
+      crpHigh ? { score: crpHigh.score, title: crpHigh.character.name, slug: crpHigh.character.slug } : null,
+    ].filter(Boolean) as { score: number; title: string; slug: string | null }[]
+
+    const highestRating =
+      highCandidates.length > 0
+        ? highCandidates.reduce((max, r) => (r.score > max.score ? r : max))
+        : null
+
+    // Lowest across both tables
+    const lowCandidates = [
+      rpLow ? { score: rpLow.score, title: rpLow.series.title, slug: rpLow.series.slug } : null,
+      crpLow ? { score: crpLow.score, title: crpLow.character.name, slug: crpLow.character.slug } : null,
+    ].filter(Boolean) as { score: number; title: string; slug: string | null }[]
+
+    const lowestRating =
+      lowCandidates.length > 0
+        ? lowCandidates.reduce((min, r) => (r.score < min.score ? r : min))
+        : null
 
     return {
       totalRatings,
-      seriesRated: uniqueSeries.length,
-      avgScore: Math.round((avgResult._avg.score || 0) * 100) / 100,
-      favoriteRating,
+      avgScore,
+      highestRating: highestRating
+        ? { ...highestRating, score: Math.round(highestRating.score * 100) / 100 }
+        : null,
+      lowestRating: lowestRating
+        ? { ...lowestRating, score: Math.round(lowestRating.score * 100) / 100 }
+        : null,
     }
   } catch (error) {
     console.error("Error fetching user stats:", error)
@@ -268,33 +345,51 @@ export async function getUserRecentRatings(
       throw new Error("User ID is required")
     }
 
-    const ratingPillars = await prisma.ratingPillar.findMany({
-      where: { userId },
-      include: {
-        pillar: {
-          select: { type: true },
+    const [ratingPillars, characterRatingPillars] = await Promise.all([
+      prisma.ratingPillar.findMany({
+        where: { userId },
+        include: {
+          pillar: { select: { type: true } },
+          series: { select: { title: true, slug: true, imageUrl: true } },
         },
-        series: {
-          select: {
-            title: true,
-            slug: true,
-            imageUrl: true,
-          },
+        orderBy: { updatedAt: "desc" },
+        take: limit,
+      }),
+      prisma.characterRatingPillar.findMany({
+        where: { userId },
+        include: {
+          pillar: { select: { type: true } },
+          character: { select: { name: true, slug: true, posterUrl: true } },
         },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: limit,
-    })
+        orderBy: { updatedAt: "desc" },
+        take: limit,
+      }),
+    ])
 
-    return ratingPillars.map((rp) => ({
-      id: rp.id,
-      seriesName: rp.series.title,
-      seriesSlug: rp.series.slug,
-      seriesImageUrl: rp.series.imageUrl,
-      pillarType: rp.pillar.type,
-      score: Math.round(rp.score * 100) / 100,
-      date: rp.updatedAt,
-    }))
+    const combined: RecentRating[] = [
+      ...ratingPillars.map((rp) => ({
+        id: rp.id,
+        mediaType: "SERIES" as const,
+        displayName: rp.series.title,
+        slug: rp.series.slug,
+        imageUrl: rp.series.imageUrl,
+        pillarType: rp.pillar.type,
+        score: Math.round(rp.score * 100) / 100,
+        date: rp.updatedAt,
+      })),
+      ...characterRatingPillars.map((crp) => ({
+        id: crp.id,
+        mediaType: "CHARACTER" as const,
+        displayName: crp.character.name,
+        slug: crp.character.slug,
+        imageUrl: crp.character.posterUrl,
+        pillarType: crp.pillar.type,
+        score: Math.round(crp.score * 100) / 100,
+        date: crp.updatedAt,
+      })),
+    ]
+
+    return combined.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, limit)
   } catch (error) {
     console.error("Error fetching recent ratings:", error)
     return []
@@ -621,21 +716,32 @@ export async function updateUserSeriesStatus(
       return { success: false, error: "User ID and Series ID are required" }
     }
 
+    // Apply cascade rules:
+    // isSeen=true  → remove from watchlist and watching
+    // isWatching=true → remove from watchlist
+    const cascadeStatus = { ...status }
+    if (status.isSeen === true) {
+      cascadeStatus.isWatchlist = false
+      cascadeStatus.isWatching = false
+    } else if (status.isWatching === true) {
+      cascadeStatus.isWatchlist = false
+    }
+
     await prisma.userSeriesStatus.upsert({
       where: {
         userId_seriesId: { userId, seriesId },
       },
       update: {
-        ...status,
+        ...cascadeStatus,
         updatedAt: new Date(),
       },
       create: {
         userId,
         seriesId,
-        isWatchlist: status.isWatchlist ?? false,
-        isSeen: status.isSeen ?? false,
-        isWatching: status.isWatching ?? false,
-        isFavorite: status.isFavorite ?? false,
+        isWatchlist: cascadeStatus.isWatchlist ?? false,
+        isSeen: cascadeStatus.isSeen ?? false,
+        isWatching: cascadeStatus.isWatching ?? false,
+        isFavorite: cascadeStatus.isFavorite ?? false,
       },
     })
 
@@ -679,5 +785,78 @@ export async function getSeriesStatusForUser(
   } catch (error) {
     console.error("Error fetching series status:", error)
     return null
+  }
+}
+
+// ============================================
+// USER SERIES LIST TYPES & ACTIONS
+// ============================================
+
+export type SeriesListStatus = "watchlist" | "seen" | "favorites" | "watching";
+
+export interface SeriesListItem {
+  id: string;
+  seriesId: string;
+  title: string;
+  slug: string | null;
+  imageUrl: string | null;
+  score: number;
+  genre: string[];
+  releaseYear: number | null;
+  addedAt: Date;
+}
+
+/**
+ * Gets user's series by status (watchlist, seen, or favorites)
+ */
+export async function getUserSeriesByStatus(
+  userId: string,
+  status: SeriesListStatus
+): Promise<SeriesListItem[]> {
+  try {
+    if (!userId) {
+      return [];
+    }
+
+    const whereClause = {
+      userId,
+      ...(status === "watchlist" && { isWatchlist: true }),
+      ...(status === "seen" && { isSeen: true }),
+      ...(status === "favorites" && { isFavorite: true }),
+      ...(status === "watching" && { isWatching: true }),
+    };
+
+    const statuses = await prisma.userSeriesStatus.findMany({
+      where: whereClause,
+      include: {
+        series: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            imageUrl: true,
+            score: true,
+            genre: true,
+            releaseYear: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return statuses.map((s) => ({
+      id: s.id,
+      seriesId: s.series.id,
+      title: s.series.title,
+      slug: s.series.slug,
+      imageUrl: s.series.imageUrl,
+      score: s.series.score,
+      genre: s.series.genre,
+      releaseYear: s.series.releaseYear,
+      addedAt: s.updatedAt,
+    }));
+  } catch (error) {
+    console.error("Error fetching user series by status:", error);
+    return [];
   }
 }

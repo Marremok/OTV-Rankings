@@ -67,7 +67,7 @@ export function HeroSection({ series }: HeroSectionProps) {
         </Link>
 
         {/* Series Status Dropdown - allows user to track watching status */}
-        <SeriesStatusDropdown seriesId={series.id} />
+        <SeriesStatusDropdown seriesId={series.id} seriesTitle={series.title} />
       </div>
 
       {/* Centered Hero Content */}
@@ -86,12 +86,12 @@ export function HeroSection({ series }: HeroSectionProps) {
         )}
 
         {/* Title with text shadow for depth */}
-        <h1 className="text-5xl md:text-7xl lg:text-9xl font-bold tracking-tighter text-white mb-10 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-100 drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
+        <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-9xl font-bold tracking-tighter text-white mb-6 md:mb-10 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-100 drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)] break-words">
           {series.title}
         </h1>
 
         {/* Meta Info Pills */}
-        <div className="flex items-center justify-center gap-4 text-zinc-200 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+        <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 text-zinc-200 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
           {series.releaseYear && (
             <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/5">
               <Calendar className="h-4 w-4 text-primary" />

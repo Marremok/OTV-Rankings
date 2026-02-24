@@ -36,7 +36,7 @@ export default function Footer() {
               Support Us
             </Link>
             <Link 
-              href="/method" 
+              href="/methodology" 
               className="text-sm text-muted-foreground hover:text-primary transition-colors w-fit"
             >
               Our Methodology

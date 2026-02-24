@@ -2,12 +2,14 @@
 
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
+import { getScoreColor } from "./pillar-utils";
 
 export interface PillarData {
   name: string;
   score: number;
   icon: LucideIcon;
   color?: string;
+  raterCount?: number;
 }
 
 interface RadarChartProps {
@@ -189,9 +191,6 @@ export function RadarChart({ pillars, size = 320, animated = true }: RadarChartP
       {/* Labels positioned around the chart */}
       {labelPositions.map(({ x, y, pillar }, index) => {
         const Icon = pillar.icon;
-        const isHighScore = pillar.score >= 9.0;
-        const isMidScore = pillar.score >= 7.0;
-
         return (
           <div
             key={index}
@@ -219,12 +218,11 @@ export function RadarChart({ pillars, size = 320, animated = true }: RadarChartP
             </span>
 
             {/* Score */}
-            <span className={cn(
-              "text-base font-bold tabular-nums",
-              isHighScore ? "text-emerald-400" : isMidScore ? "text-primary" : "text-zinc-300"
-            )}>
+            <span className={cn("text-base font-bold tabular-nums", getScoreColor(pillar.score).text)}>
               {pillar.score.toFixed(2)}
             </span>
+
+           
           </div>
         );
       })}

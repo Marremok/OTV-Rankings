@@ -29,7 +29,7 @@ const MENU_ITEMS = [
     key: "watchlist" as const,
     icon: List,
     label: "Watchlist",
-    href: "#watchlist", // TODO: Implement /profile/watchlist page
+    href: "/profile/watchlist",
     color: "text-blue-400",
     description: "Series you plan to watch",
   },
@@ -37,7 +37,7 @@ const MENU_ITEMS = [
     key: "seen" as const,
     icon: Eye,
     label: "Seen",
-    href: "#seen", // TODO: Implement /profile/seen page
+    href: "/profile/seen",
     color: "text-emerald-400",
     description: "Series you've completed",
   },
@@ -45,7 +45,7 @@ const MENU_ITEMS = [
     key: "watching" as const,
     icon: Play,
     label: "Watching",
-    href: "#watching", // TODO: Implement /profile/watching page
+    href: "/profile/watching",
     color: "text-amber-400",
     description: "Series in progress",
   },
@@ -53,7 +53,7 @@ const MENU_ITEMS = [
     key: "favorites" as const,
     icon: Heart,
     label: "Favorites",
-    href: "#favorites", // TODO: Implement /profile/favorites page
+    href: "/profile/favorites",
     color: "text-rose-400",
     description: "Your favorite series",
   },

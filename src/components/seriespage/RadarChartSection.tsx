@@ -3,8 +3,9 @@
 import { cn } from "@/lib/utils";
 import { BarChart3 } from "lucide-react";
 import { RadarChart, PillarData } from "./RadarChart";
+import { useState, useEffect } from "react";
 import { SeriesPillarScores } from "@/lib/actions/scoring";
-import { getPillarIcon, capitalize } from "./pillar-utils";
+import { getPillarIcon, capitalize, getScoreColor } from "./pillar-utils";
 
 interface PillarCardProps {
   pillar: PillarData;
@@ -16,8 +17,7 @@ interface PillarCardProps {
  */
 function PillarCard({ pillar, index }: PillarCardProps) {
   const Icon = pillar.icon;
-  const isHighScore = pillar.score >= 9.0;
-  const isMidScore = pillar.score >= 7.0;
+  const colors = getScoreColor(pillar.score);
 
   return (
     <div
@@ -42,19 +42,17 @@ function PillarCard({ pillar, index }: PillarCardProps) {
                 <Icon className="h-4 w-4 text-zinc-400 group-hover:text-primary transition-colors duration-300" />
               </div>
             </div>
-            <span className="font-semibold text-zinc-200 group-hover:text-white transition-colors">
-              {pillar.name}
-            </span>
+            <div>
+              <span className="font-semibold text-zinc-200 group-hover:text-white transition-colors block">
+                {pillar.name}
+              </span>
+            </div>
           </div>
 
           {/* Score badge */}
           <div className={cn(
             "px-3 py-1 rounded-lg font-bold text-lg tabular-nums transition-all duration-300",
-            isHighScore
-              ? "bg-emerald-500/10 text-emerald-400"
-              : isMidScore
-              ? "bg-primary/10 text-primary"
-              : "bg-zinc-800 text-zinc-400"
+            colors.bgSubtle, colors.text
           )}>
             {pillar.score.toFixed(2)}
           </div>
@@ -67,14 +65,7 @@ function PillarCard({ pillar, index }: PillarCardProps) {
 
           {/* Progress fill */}
           <div
-            className={cn(
-              "h-full rounded-full transition-all duration-700 ease-out",
-              isHighScore
-                ? "bg-linear-to-r from-emerald-500 to-emerald-400"
-                : isMidScore
-                ? "bg-linear-to-r from-primary/80 to-primary"
-                : "bg-linear-to-r from-zinc-600 to-zinc-500"
-            )}
+            className={cn("h-full rounded-full transition-all duration-700 ease-out", colors.bg)}
             style={{ width: `${pillar.score * 10}%` }}
           />
         </div>
@@ -88,7 +79,7 @@ function PillarCard({ pillar, index }: PillarCardProps) {
  */
 function EmptyRatingsState() {
   return (
-    <section className="relative py-24 px-6 overflow-hidden">
+    <section className="relative py-12 px-4 md:py-24 md:px-6 overflow-hidden">
       <div className="max-w-6xl mx-auto relative">
         <div className="text-center">
           <div className="inline-flex items-center gap-3 mb-4">
@@ -125,14 +116,29 @@ interface RadarChartSectionProps {
  * Features striking visuals, glow effects, and smooth animations
  */
 export function RadarChartSection({ pillarScores, overallScore = 0 }: RadarChartSectionProps) {
+  const [chartSize, setChartSize] = useState(340);
+
+  useEffect(() => {
+    const update = () => setChartSize(window.innerWidth < 640 ? 280 : 340);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   // Convert pillarScores to PillarData array for the chart
   const pillarData: PillarData[] = pillarScores
     ? Object.entries(pillarScores).map(([type, data]) => ({
         name: capitalize(type),
         score: data.avgScore,
         icon: getPillarIcon(type),
+        raterCount: data.raterCount,
       }))
     : [];
+
+  // Calculate total unique raters (approximate - max of any pillar's count)
+  const totalRaters = pillarData.length > 0
+    ? Math.max(...pillarData.map(p => p.raterCount ?? 0))
+    : 0;
 
   // Show empty state if no ratings
   if (pillarData.length === 0) {
@@ -146,7 +152,7 @@ export function RadarChartSection({ pillarScores, overallScore = 0 }: RadarChart
       : 0);
 
   return (
-    <section className="relative py-24 px-6 overflow-hidden">
+    <section className="relative py-12 px-4 md:py-24 md:px-6 overflow-hidden">
       {/* Background effects */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Radial gradient from center */}
@@ -159,7 +165,7 @@ export function RadarChartSection({ pillarScores, overallScore = 0 }: RadarChart
 
       <div className="max-w-6xl mx-auto relative">
         {/* Section header */}
-        <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="text-center mb-8 md:mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="inline-flex items-center gap-3 mb-4">
             <div className="h-px w-12 bg-linear-to-r from-transparent to-primary/50" />
             <span className="text-xs font-bold text-primary uppercase tracking-[0.3em]">
@@ -172,11 +178,18 @@ export function RadarChartSection({ pillarScores, overallScore = 0 }: RadarChart
           </h2>
           <p className="text-zinc-500 max-w-md mx-auto">
             Detailed scoring across {pillarData.length} rating {pillarData.length === 1 ? 'pillar' : 'pillars'}
+            {totalRaters > 0 && (
+              <span className="block mt-1 text-zinc-600">
+                {`${totalRaters >= 1000 ? Math.floor(totalRaters / 1000) + 'k' : totalRaters} ${
+                    totalRaters === 1 ? 'community rating' : 'community ratings'
+                }`}
+              </span>
+            )}
           </p>
         </div>
 
         {/* Main content grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-16 items-center">
           {/* Radar Chart Container */}
           <div className="flex justify-center">
             <div className="relative">
@@ -188,7 +201,7 @@ export function RadarChartSection({ pillarScores, overallScore = 0 }: RadarChart
 
               {/* Chart */}
               <div className="relative z-10">
-                <RadarChart pillars={pillarData} size={340} />
+                <RadarChart pillars={pillarData} size={chartSize} />
               </div>
 
               {/* Center score display */}
@@ -225,10 +238,7 @@ export function RadarChartSection({ pillarScores, overallScore = 0 }: RadarChart
               <div className="flex items-center justify-between">
                 <span className="text-zinc-400 font-medium">Overall Score</span>
                 <div className="flex items-baseline gap-2">
-                  <span className={cn(
-                    "text-3xl font-black tabular-nums",
-                    averageScore >= 9.0 ? "text-emerald-400" : averageScore >= 7.0 ? "text-primary" : "text-zinc-300"
-                  )}>
+                  <span className={cn("text-3xl font-black tabular-nums", getScoreColor(averageScore).text)}>
                     {averageScore.toFixed(2)}
                   </span>
                   <span className="text-zinc-600">/ 10</span>

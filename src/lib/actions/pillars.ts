@@ -3,6 +3,13 @@
 import prisma from "../prisma"
 import { revalidatePath } from "next/cache"
 import { mediaType } from "@/generated/prisma/enums"
+import {
+  createPillarSchema,
+  editPillarSchema,
+  createRatingPillarSchema,
+  createCharacterRatingPillarSchema,
+  safeValidate,
+} from "@/lib/validations"
 
 // ============================================
 // PILLAR TEMPLATE ACTIONS (Admin)
@@ -54,9 +61,9 @@ export async function createPillar(input: CreatePillarInput) {
   } catch (error: any) {
     console.error("Error creating pillar:", error)
 
-    // Handle unique constraint violation (duplicate type)
+    // Handle unique constraint violation (duplicate type + mediaType combination)
     if (error?.code === "P2002") {
-      throw new Error("A pillar with this type already exists")
+      throw new Error("A pillar with this type already exists for this media type")
     }
 
     // Re-throw validation errors
@@ -189,22 +196,24 @@ export async function editPillar(input: EditPillarInput) {
     // Check that the pillar exists
     const currentPillar = await prisma.pillar.findUnique({
       where: { id: input.id },
-      select: { type: true },
+      select: { type: true, mediaType: true },
     })
 
     if (!currentPillar) {
       throw new Error("Pillar not found")
     }
 
-    // If type is being changed, check for duplicates
+    // If type or mediaType is being changed, check for duplicates within the same mediaType
     const newType = input.type.trim().toLowerCase()
-    if (newType !== currentPillar.type) {
-      const existingPillar = await prisma.pillar.findUnique({
-        where: { type: newType },
+    const newMediaType = input.mediaType
+    if (newType !== currentPillar.type || newMediaType !== currentPillar.mediaType) {
+      const existingPillar = await prisma.pillar.findFirst({
+        where: { type: newType, mediaType: newMediaType },
+        select: { id: true },
       })
 
-      if (existingPillar) {
-        throw new Error("A pillar with this type already exists")
+      if (existingPillar && existingPillar.id !== input.id) {
+        throw new Error("A pillar with this type already exists for this media type")
       }
     }
 
@@ -226,9 +235,9 @@ export async function editPillar(input: EditPillarInput) {
   } catch (error: any) {
     console.error("Error updating pillar:", error)
 
-    // Handle unique constraint violation (duplicate type)
+    // Handle unique constraint violation (duplicate type + mediaType combination)
     if (error?.code === "P2002") {
-      throw new Error("A pillar with this type already exists")
+      throw new Error("A pillar with this type already exists for this media type")
     }
 
     if (error?.code === "P2025") {
@@ -268,28 +277,16 @@ export interface CreateRatingPillarInput {
  */
 export async function createRatingPillar(input: CreateRatingPillarInput) {
   try {
-    // Validate required fields
-    if (!input.userId) {
-      throw new Error("User ID is required")
+    // Validate input using Zod schema
+    const validation = safeValidate(createRatingPillarSchema, input)
+    if (!validation.success) {
+      throw new Error(validation.error)
     }
-    if (!input.seriesId) {
-      throw new Error("Series ID is required")
-    }
-    if (!input.pillarId) {
-      throw new Error("Pillar ID is required")
-    }
-    if (input.finalScore === undefined || input.finalScore === null) {
-      throw new Error("Final score is required")
-    }
-
-    // Validate score range
-    if (input.finalScore < 0 || input.finalScore > 10) {
-      throw new Error("Score must be between 0 and 10")
-    }
+    const validatedInput = validation.data
 
     // Verify pillar exists
     const pillar = await prisma.pillar.findUnique({
-      where: { id: input.pillarId },
+      where: { id: validatedInput.pillarId },
     })
     if (!pillar) {
       throw new Error("Pillar not found")
@@ -297,29 +294,29 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
 
     // Verify series exists
     const series = await prisma.series.findUnique({
-      where: { id: input.seriesId },
+      where: { id: validatedInput.seriesId },
     })
     if (!series) {
       throw new Error("Series not found")
     }
 
     // Round score to 2 decimal places
-    const roundedScore = Math.round(input.finalScore * 100) / 100
+    const roundedScore = Math.round(validatedInput.finalScore * 100) / 100
 
     // Upsert the rating pillar (create or update if exists)
     const ratingPillar = await prisma.ratingPillar.upsert({
       where: {
         userId_seriesId_pillarId: {
-          userId: input.userId,
-          seriesId: input.seriesId,
-          pillarId: input.pillarId,
+          userId: validatedInput.userId,
+          seriesId: validatedInput.seriesId,
+          pillarId: validatedInput.pillarId,
         },
       },
       create: {
         id: crypto.randomUUID(),
-        userId: input.userId,
-        seriesId: input.seriesId,
-        pillarId: input.pillarId,
+        userId: validatedInput.userId,
+        seriesId: validatedInput.seriesId,
+        pillarId: validatedInput.pillarId,
         score: roundedScore,
         updatedAt: new Date(),
       },
@@ -334,6 +331,29 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
     //   - Development: npx tsx scripts/update-scores.ts
     //   - Production: Cron job calling /api/cron/update-scores
     // This avoids O(n) aggregation on every rating submission.
+
+    // Auto-mark series as seen when any pillar is rated
+    await prisma.userSeriesStatus.upsert({
+      where: {
+        userId_seriesId: {
+          userId: validatedInput.userId,
+          seriesId: validatedInput.seriesId,
+        },
+      },
+      create: {
+        userId: validatedInput.userId,
+        seriesId: validatedInput.seriesId,
+        isSeen: true,
+        isWatchlist: false,
+        isWatching: false,
+        isFavorite: false,
+      },
+      update: {
+        isSeen: true,
+        isWatchlist: false,
+        isWatching: false,
+      },
+    })
 
     return ratingPillar
   } catch (error: any) {
@@ -420,6 +440,121 @@ export async function getUserRatingsForMultipleSeries(userId: string, seriesIds:
     return ratingsMap
   } catch (error) {
     console.error("Error fetching user ratings for multiple series:", error)
+    return {}
+  }
+}
+
+// ============================================
+// CHARACTER RATING PILLAR ACTIONS (User ratings for characters)
+// ============================================
+
+export interface CreateCharacterRatingPillarInput {
+  userId:      string
+  characterId: string
+  pillarId:    string
+  finalScore:  number
+}
+
+/**
+ * Creates or updates a user's rating for a specific pillar on a character.
+ * Mirrors createRatingPillar exactly but uses characterId instead of seriesId.
+ */
+export async function createCharacterRatingPillar(input: CreateCharacterRatingPillarInput) {
+  try {
+    const validation = safeValidate(createCharacterRatingPillarSchema, input)
+    if (!validation.success) throw new Error(validation.error)
+    const v = validation.data
+
+    const pillar = await prisma.pillar.findUnique({ where: { id: v.pillarId } })
+    if (!pillar) throw new Error("Pillar not found")
+
+    const character = await prisma.character.findUnique({ where: { id: v.characterId } })
+    if (!character) throw new Error("Character not found")
+
+    const roundedScore = Math.round(v.finalScore * 100) / 100
+
+    const ratingPillar = await prisma.characterRatingPillar.upsert({
+      where: {
+        userId_characterId_pillarId: {
+          userId:      v.userId,
+          characterId: v.characterId,
+          pillarId:    v.pillarId,
+        },
+      },
+      create: {
+        id:          crypto.randomUUID(),
+        userId:      v.userId,
+        characterId: v.characterId,
+        pillarId:    v.pillarId,
+        score:       roundedScore,
+        updatedAt:   new Date(),
+      },
+      update: {
+        score:     roundedScore,
+        updatedAt: new Date(),
+      },
+    })
+
+    return ratingPillar
+  } catch (error: any) {
+    console.error("Error creating character rating pillar:", error)
+    if (error.message?.includes("required") || error.message?.includes("not found")) throw error
+    throw new Error("Failed to save character rating")
+  }
+}
+
+/**
+ * Fetches all rating pillars for a user on a specific character.
+ * Mirrors getUserRatingPillars.
+ */
+export async function getUserCharacterRatingPillars(userId: string, characterId: string) {
+  try {
+    if (!userId)      throw new Error("User ID is required")
+    if (!characterId) throw new Error("Character ID is required")
+
+    return await prisma.characterRatingPillar.findMany({
+      where:   { userId, characterId },
+      include: { pillar: true },
+      orderBy: { createdAt: "asc" },
+    })
+  } catch (error) {
+    console.error("Error fetching user character rating pillars:", error)
+    throw new Error("Failed to fetch user character ratings")
+  }
+}
+
+/**
+ * Fetches all character rating pillars for a user across multiple characters.
+ * Returns a map of characterId -> user ratings for efficient lookup.
+ * Mirrors getUserRatingsForMultipleSeries.
+ */
+export async function getUserRatingsForMultipleCharacters(userId: string, characterIds: string[]) {
+  try {
+    if (!userId) return {}
+    if (!characterIds.length) return {}
+
+    const ratingPillars = await prisma.characterRatingPillar.findMany({
+      where: {
+        userId,
+        characterId: { in: characterIds },
+      },
+      include: {
+        pillar: true,
+      },
+    })
+
+    // Group by characterId
+    const ratingsMap: Record<string, typeof ratingPillars> = {}
+    for (const rating of ratingPillars) {
+      if (!ratingsMap[rating.characterId]) {
+        ratingsMap[rating.characterId] = []
+      }
+      ratingsMap[rating.characterId].push(rating)
+    }
+
+    return ratingsMap
+  } catch (error) {
+    console.error("Error fetching user ratings for multiple characters:", error)
     return {}
   }
 }

@@ -11,13 +11,20 @@ import {
   getUserSeriesStatusCounts,
   updateUserProfileImage,
   updateUserHeroImage,
-  UserProfileData,
-  UserProfileStats,
-  RecentRating,
-  PillarBreakdown,
-  HighestRating,
-  CurrentlyWatchingSeries,
+  getPublicUserProfile,
+  getUserSeriesByStatus,
+  type UserProfileData,
+  type UserProfileStats,
+  type RecentRating,
+  type PillarBreakdown,
+  type HighestRating,
+  type CurrentlyWatchingSeries,
+  type PublicUserProfile,
+  type SeriesListItem,
+  type SeriesListStatus,
 } from "@/lib/actions/user"
+export type { UserProfileStats, RecentRating } from "@/lib/actions/user"
+export type { SeriesListStatus } from "@/lib/actions/user"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 
 // ============================================
@@ -211,6 +218,39 @@ export function useUpdateSeriesStatus() {
       queryClient.invalidateQueries({ queryKey: ["userSeriesStatusCounts", userId] })
       queryClient.invalidateQueries({ queryKey: ["userCurrentlyWatching", userId] })
       queryClient.invalidateQueries({ queryKey: ["userProfileData", userId] })
+      queryClient.invalidateQueries({ queryKey: ["userSeriesList"] })
     },
+  })
+}
+
+// ============================================
+// PUBLIC PROFILE HOOKS
+// ============================================
+
+/**
+ * Hook for fetching a user's public profile (no sensitive info).
+ */
+export function usePublicUserProfile(userId: string | undefined) {
+  return useQuery<PublicUserProfile | null>({
+    queryKey: ["publicUserProfile", userId],
+    queryFn: () => getPublicUserProfile(userId!),
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+// ============================================
+// SERIES LIST HOOKS
+// ============================================
+
+/**
+ * Hook for fetching user's series by status (watchlist, seen, or favorites).
+ */
+export function useUserSeriesList(userId: string | undefined, status: SeriesListStatus) {
+  return useQuery<SeriesListItem[]>({
+    queryKey: ["userSeriesList", userId, status],
+    queryFn: () => getUserSeriesByStatus(userId!, status),
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5,
   })
 }

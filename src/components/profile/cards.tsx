@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Tv, ChevronRight, Trophy } from "lucide-react";
+import { Tv, ChevronRight, Trophy, User, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { RecentRating, PillarBreakdown, HighestRating } from "@/lib/actions/user";
-import { getPillarIcon, getPillarColor } from "@/components/seriespage/pillar-utils";
-import { capitalize, getScoreColor, formatDate } from "./utils";
+import { getPillarIcon, getPillarColor, getScoreColor } from "@/components/seriespage/pillar-utils";
+import { capitalize, formatDate } from "./utils";
 
 // ============================================
 // COMPONENT: Stats Card
@@ -69,13 +69,24 @@ export interface RecentRatingCardProps {
 }
 
 export function RecentRatingCard({ rating, index }: RecentRatingCardProps) {
-  const scoreColor = getScoreColor(rating.score);
+  const scoreColor = getScoreColor(rating.score).text;
   const formattedDate = formatDate(rating.date);
   const pillarName = capitalize(rating.pillarType);
 
+  const href =
+    rating.mediaType === "CHARACTER"
+      ? rating.slug
+        ? `/characters/${rating.slug}`
+        : "#"
+      : rating.slug
+      ? `/series/${rating.slug}`
+      : "#"
+
+  const FallbackIcon = rating.mediaType === "CHARACTER" ? User : Tv
+
   return (
     <Link
-      href={rating.seriesSlug ? `/series/${rating.seriesSlug}` : "#"}
+      href={href}
       className={cn(
         "group relative flex items-center gap-4 p-4 rounded-xl transition-all duration-500",
         "border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-sm",
@@ -85,22 +96,22 @@ export function RecentRatingCard({ rating, index }: RecentRatingCardProps) {
       style={{ animationDelay: `${index * 80}ms` }}
     >
       <div className="shrink-0 w-12 h-16 rounded-lg overflow-hidden bg-zinc-800">
-        {rating.seriesImageUrl ? (
+        {rating.imageUrl ? (
           <img
-            src={rating.seriesImageUrl}
-            alt={rating.seriesName}
+            src={rating.imageUrl}
+            alt={rating.displayName}
             className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Tv className="w-5 h-5 text-zinc-600" />
+            <FallbackIcon className="w-5 h-5 text-zinc-600" />
           </div>
         )}
       </div>
 
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold text-zinc-200 truncate group-hover:text-white transition-colors">
-          {rating.seriesName}
+          {rating.displayName}
         </h4>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-zinc-500">{pillarName}</span>
@@ -178,7 +189,7 @@ export function PillarBreakdownCard({ pillar, index }: PillarBreakdownCardProps)
         </div>
 
         <div className="text-right">
-          <span className="text-lg font-bold text-primary tabular-nums">
+          <span className={cn("text-lg font-bold tabular-nums", getScoreColor(pillar.avgScore).text)}>
             {pillar.avgScore.toFixed(2)}
           </span>
           <p className="text-xs text-zinc-600">avg</p>
@@ -289,7 +300,7 @@ export function HighestRatingCard({ rating, isLoading = false }: HighestRatingCa
 
         {/* Score */}
         <div className="shrink-0 text-right">
-          <span className="text-2xl font-bold text-emerald-400 tabular-nums">
+          <span className={cn("text-2xl font-bold tabular-nums", getScoreColor(rating.score).text)}>
             {rating.score.toFixed(2)}
           </span>
           <p className="text-xs text-zinc-600">score</p>
@@ -299,6 +310,48 @@ export function HighestRatingCard({ rating, isLoading = false }: HighestRatingCa
       {/* Left accent bar */}
       <div className="absolute top-0 bottom-0 left-0 w-1 rounded-l-xl bg-linear-to-b from-amber-400 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
     </Link>
+  );
+}
+
+// ============================================
+// COMPONENT: Favorite Character Card
+// ============================================
+
+export function FavoriteCharacterCard({ isLoading = false }: { isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="relative p-5 rounded-xl border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-sm animate-pulse">
+        <div className="flex items-start gap-4">
+          <div className="w-16 h-20 rounded-lg bg-zinc-800/60" />
+          <div className="flex-1">
+            <div className="h-4 w-24 bg-zinc-800/60 rounded mb-2" />
+            <div className="h-6 w-32 bg-zinc-800/60 rounded mb-2" />
+            <div className="h-3 w-20 bg-zinc-800/60 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "relative p-5 rounded-xl transition-all duration-500",
+        "border border-dashed border-zinc-800/60 bg-zinc-900/20",
+        "animate-in fade-in slide-in-from-bottom-4 duration-700"
+      )}
+    >
+      <div className="flex flex-col items-center justify-center gap-3 py-2">
+        <div className="w-12 h-12 rounded-xl bg-zinc-800/80 flex items-center justify-center">
+          <User className="w-6 h-6 text-zinc-600" />
+        </div>
+        <p className="text-sm font-semibold text-zinc-400">Favorite Character</p>
+        <p className="text-xs text-zinc-600 text-center leading-tight">
+          Pick one from<br />
+          <Link href="/rankings/characters" className="text-primary hover:underline">Rankings</Link>
+        </p>
+      </div>
+    </div>
   );
 }
 

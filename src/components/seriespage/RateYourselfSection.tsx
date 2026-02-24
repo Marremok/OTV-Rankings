@@ -14,6 +14,7 @@ import {
   getPillarColor,
   calculateWeightedScore,
   capitalize,
+  getScoreColor,
 } from "./pillar-utils";
 import { useGetPillarsByType, useCreateRatingPillar, useGetUserRatingPillars } from "@/hooks/use-pillars";
 import { useSession } from "@/lib/auth-client";
@@ -78,7 +79,7 @@ export function RateYourselfSection({
       id: dbPillar.id,
       name: capitalize(dbPillar.type),
       type: dbPillar.type,
-      icon: getPillarIcon(dbPillar.type),
+      icon: getPillarIcon(dbPillar.icon || dbPillar.type),
       description: dbPillar.description || `Rate the ${dbPillar.type} aspects`,
       color: getPillarColor(dbPillar.type),
       weight: dbPillar.weight, // Use database weight directly
@@ -101,6 +102,16 @@ export function RateYourselfSection({
     if (!userRatings) return new Map<string, number>();
     return new Map(userRatings.map((r) => [r.pillarId, r.score]));
   }, [userRatings]);
+
+  // Calculate user's weighted overall score across all rated pillars
+  const userOverallScore = useMemo(() => {
+    const ratedPillars = pillarsWithQuestions.filter(p => userRatingsMap.has(p.id));
+    if (ratedPillars.length === 0) return null;
+    const weightedSum = ratedPillars.reduce((sum, p) => sum + (userRatingsMap.get(p.id)! * p.weight), 0);
+    const totalWeight = ratedPillars.reduce((sum, p) => sum + p.weight, 0);
+    if (totalWeight === 0) return null;
+    return Math.round((weightedSum / totalWeight) * 100) / 100;
+  }, [pillarsWithQuestions, userRatingsMap]);
 
   // Start quiz for a pillar
   const handlePillarSelect = useCallback((pillar: Pillar) => {
@@ -275,12 +286,26 @@ export function RateYourselfSection({
             disabled={!userId}
           />
         ))}
+
+        {userOverallScore !== null && (
+          <div className="mt-4 pt-6 border-t border-zinc-800/50">
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-400 font-medium">Your Overall Score</span>
+              <div className="flex items-baseline gap-2">
+                <span className={cn("text-3xl font-black tabular-nums", getScoreColor(userOverallScore).text)}>
+                  {userOverallScore.toFixed(2)}
+                </span>
+                <span className="text-zinc-600">/ 10</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
 
   return (
-    <section className="relative py-24 px-6 overflow-hidden">
+    <section className="relative py-12 px-4 md:py-24 md:px-6 overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
@@ -292,7 +317,7 @@ export function RateYourselfSection({
         {/* Section header */}
         <div
           className={cn(
-            "text-center mb-14 transition-all duration-500",
+            "text-center mb-8 md:mb-14 transition-all duration-500",
             isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
           )}
         >

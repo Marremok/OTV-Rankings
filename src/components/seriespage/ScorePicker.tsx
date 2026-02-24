@@ -133,7 +133,7 @@ export default function ScorePicker({ value, onChange }: ScorePickerProps) {
       </div>
 
       {/* Scale reference */}
-      <div className="flex justify-between px-6 pt-2 text-[10px] text-zinc-600 uppercase tracking-wider">
+      <div className="hidden sm:flex justify-between px-6 pt-2 text-[10px] text-zinc-600 uppercase tracking-wider">
         <span>Terrible</span>
         <span>Average</span>
         <span>Great</span>

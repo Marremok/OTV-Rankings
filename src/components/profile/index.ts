@@ -1,11 +1,10 @@
-// Profile utilities - re-export all components and utilities
-
 // Card components
 export {
   StatCard,
   RecentRatingCard,
   PillarBreakdownCard,
   HighestRatingCard,
+  FavoriteCharacterCard,
   RecentRatingSkeleton,
   PillarBreakdownSkeleton,
 } from "./cards";
@@ -16,12 +15,23 @@ export { ImageUploadDialog } from "./image-upload";
 export type { ImageUploadDialogProps, UploadProgress } from "./image-upload";
 
 // Section components
-export { CurrentlyWatchingSection, PlaceholderSection } from "./sections";
-export type { CurrentlyWatchingSectionProps, PlaceholderSectionProps } from "./sections";
+export { CurrentlyWatchingSection } from "./sections";
+export type { CurrentlyWatchingSectionProps } from "./sections";
+
+// Media list preview section (Seen / Watchlist)
+export { MediaListPreviewSection } from "./MediaListPreviewSection";
+
+// Favorites components
+export { FavoriteSection, FavoriteCard, AddFavoriteDialog, ReplaceFavoriteDialog } from "./favorites";
+export type { FavoriteSectionProps, FavoriteCardProps } from "./favorites";
 
 // Menu components
 export { ProfileMenu, CompactProfileMenu } from "./menu";
 export type { ProfileMenuProps, SeriesStatusCounts, CompactMenuProps } from "./menu";
+
+// Series list page component
+export { SeriesListPage } from "./SeriesListPage";
+export type { SeriesListPageProps } from "./SeriesListPage";
 
 // Utility functions
 export { capitalize, formatDate, getUserInitials, getScoreColor } from "./utils";
