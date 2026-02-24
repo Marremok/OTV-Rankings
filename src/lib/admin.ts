@@ -11,7 +11,7 @@ export async function requireAdmin() {
   
   // Kontrollera om användaren är inloggad
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
   
   // Kontrollera om användaren har admin-roll

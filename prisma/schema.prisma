@@ -7,182 +7,144 @@ datasource db {
   provider = "postgresql"
 }
 
-
-
-// Pillar = Template (admin-created, defines rating structure)
-// NOT linked to a specific series - linked to mediaType instead
 model Pillar {
-  id          String    @id
-  type        String    // ex. "writing", "directing", "acting"
-  mediaType   mediaType // Which media type this pillar applies to
-  icon        String?
-  description String?
-  weight      Float     @default(1.0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-
-  // Relations
+  id                     String                  @id
+  type                   String
+  icon                   String?
+  description            String?
+  weight                 Float                   @default(1.0)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
+  mediaType              mediaType
+  characterRatingPillars CharacterRatingPillar[]
   questions              Question[]
-  ratingPillars          RatingPillar[]          // User ratings based on this template
-  characterRatingPillars CharacterRatingPillar[] // User ratings for characters
+  ratingPillars          RatingPillar[]
 
-  // Same pillar type name can exist per media type (e.g. "writing" for SERIES and CHARACTER)
   @@unique([type, mediaType])
 }
 
-// RatingPillar = User's actual rating (user-owned)
-// Created when a user rates a series using a Pillar template
 model RatingPillar {
   id        String   @id
   score     Float
   createdAt DateTime @default(now())
   updatedAt DateTime
+  userId    String
+  seriesId  String
+  pillarId  String
+  pillar    Pillar   @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Foreign keys
-  userId   String
-  seriesId String
-  pillarId String // References the Pillar template used
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  pillar Pillar @relation(fields: [pillarId], references: [id], onDelete: Cascade)
-
-  // Ensure user can only rate each pillar once per series
   @@unique([userId, seriesId, pillarId])
   @@index([userId])
   @@index([seriesId])
   @@index([pillarId])
 }
 
-
-
-// Question = Part of a Pillar template
-// Defines what aspects are evaluated within a pillar
 model Question {
   id          String   @id
   title       String
-  weight      Float    @default(1.0) // How much this question affects pillar score
+  weight      Float    @default(1.0)
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-
-  // Foreign key to Pillar template
-  pillarId String
-
-  pillar Pillar @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  pillarId    String
+  pillar      Pillar   @relation(fields: [pillarId], references: [id], onDelete: Cascade)
 
   @@index([pillarId])
 }
 
-
 model Series {
-  id           String         @id
-  title        String
-  description  String?
-  releaseYear  Int?
-  imageUrl     String?
-  wideImageUrl String?        // Bred bild för hero-sektion på seriesidan
-  slug         String?        @unique
-  genre        String[]
-  seasons      Int?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime
-  score        Float          // Overall score calculated from pillar scores
-  ranking      Int            @default(0)
-
-  // Aggregated pillar scores: { "writing": { avgScore: 8.5, raterCount: 15 }, ... }
-  pillarScores Json?
-
-  ratingPillars    RatingPillar[]
-  characters       Character[]
-  seriesSeasons    Season[]
-  userStatuses     UserSeriesStatus[] // Users' watchlist/seen/watching/favorite status
+  id            String             @id
+  title         String
+  description   String?
+  releaseYear   Int?
+  imageUrl      String?
+  wideImageUrl  String?
+  slug          String?            @unique
+  genre         String[]
+  seasons       Int?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime
+  score         Float
+  ranking       Int                @default(0)
+  pillarScores  Json?
+  characters    Character[]
+  ratingPillars RatingPillar[]
+  seriesSeasons Season[]
+  userStatuses  UserSeriesStatus[]
 
   @@index([createdAt])
   @@index([releaseYear])
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean
-  image         String?
-  profileImage  String?
-  heroImage     String?   // Hero-style banner image for profile page
-  createdAt     DateTime
-  updatedAt     DateTime
-  role          String    @default("user")
-
-  ratingPillars          RatingPillar[]          // User's series ratings
-  characterRatingPillars CharacterRatingPillar[] // User's character ratings
-  seriesStatuses         UserSeriesStatus[]      // Watchlist, seen, currently watching, favorites
-  donations              Donation[]              // User's donation history
-  userFavorites          UserFavorite[]          // Ranked favorites (1-4 per media type)
-
-  account       Account[]
-  session       Session[]
+  id                     String                  @id
+  name                   String
+  email                  String                  @unique
+  emailVerified          Boolean
+  image                  String?
+  createdAt              DateTime
+  updatedAt              DateTime
+  role                   String                  @default("user")
+  heroImage              String?
+  profileImage           String?
+  account                Account[]
+  characterRatingPillars CharacterRatingPillar[]
+  donations              Donation[]
+  ratingPillars          RatingPillar[]
+  session                Session[]
+  userFavorites          UserFavorite[]
+  seriesStatuses         UserSeriesStatus[]
 }
 
-// UserFavorite = Ranked top-4 favorites per media type (polymorphic via mediaType + mediaId)
 model UserFavorite {
   id        String    @id @default(cuid())
   userId    String
   mediaType mediaType
-  mediaId   String    // Series.id or Character.id (polymorphic, no FK)
-  rank      Int       // 1–4
+  mediaId   String
+  rank      Int
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, mediaType, mediaId])
   @@unique([userId, mediaType, rank])
   @@index([userId, mediaType])
 }
 
-// Donation record - tracks completed Stripe payments
 model Donation {
   id                    String   @id @default(cuid())
   stripeSessionId       String   @unique
   stripePaymentIntentId String?
-  amount                Int      // Amount in cents
+  amount                Int
   currency              String   @default("usd")
-  status                String   @default("completed") // completed, refunded, failed
-  email                 String   // Email from Stripe checkout
-  userId                String?  // Optional - if user was logged in
-  metadata              Json?    // Additional Stripe metadata
+  status                String   @default("completed")
+  email                 String
+  userId                String?
+  metadata              Json?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                  User?    @relation(fields: [userId], references: [id])
 
   @@index([email])
   @@index([userId])
   @@index([createdAt])
 }
 
-// Tracks user's relationship with series (watchlist, seen, currently watching, favorites)
 model UserSeriesStatus {
-  id              String   @id @default(cuid())
-  userId          String
-  seriesId        String
+  id          String   @id @default(cuid())
+  userId      String
+  seriesId    String
+  isWatchlist Boolean  @default(false)
+  isSeen      Boolean  @default(false)
+  isWatching  Boolean  @default(false)
+  isFavorite  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Status flags
-  isWatchlist     Boolean  @default(false)
-  isSeen          Boolean  @default(false)
-  isWatching      Boolean  @default(false)
-  isFavorite      Boolean  @default(false)
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relations
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  series          Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-
-  // One status record per user-series combination
   @@unique([userId, seriesId])
   @@index([userId])
   @@index([seriesId])
@@ -200,9 +162,6 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
-
-
 model Verification {
   id         String    @id
   identifier String
@@ -211,7 +170,6 @@ model Verification {
   createdAt  DateTime?
   updatedAt  DateTime?
 }
-
 
 model Account {
   id                    String    @id
@@ -231,45 +189,37 @@ model Account {
 }
 
 model Character {
-  id           String   @id
-  name         String
-  slug         String?  @unique
-  actorName    String?                // Actor/actress who portrays this character
-  description  String?
-  posterUrl    String?
-  ranking      Float    @default(0)
-  score        Float    @default(0)  // Overall score calculated from pillar scores
-  pillarScores Json?                 // Aggregated: { "charisma": { avgScore: 8.5, raterCount: 12 }, ... }
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime
-
+  id                     String                  @id
+  name                   String
+  posterUrl              String?
+  ranking                Float                   @default(0)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
   seriesId               String
-  series                 Series                 @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  actorName              String?
+  description            String?
+  pillarScores           Json?
+  score                  Float                   @default(0)
+  slug                   String?                 @unique
+  series                 Series                  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   characterRatingPillars CharacterRatingPillar[]
 
   @@index([seriesId])
   @@index([name])
 }
 
-// CharacterRatingPillar = User's actual rating for a character pillar
-// Mirrors RatingPillar but uses characterId instead of seriesId
 model CharacterRatingPillar {
-  id          String   @id
+  id          String    @id
   score       Float
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   updatedAt   DateTime
-
-  // Foreign keys
   userId      String
   characterId String
   pillarId    String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  pillar      Pillar    @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Relations
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  pillar    Pillar    @relation(fields: [pillarId], references: [id], onDelete: Cascade)
-
-  // Ensure user can only rate each pillar once per character
   @@unique([userId, characterId, pillarId])
   @@index([userId])
   @@index([characterId])
@@ -277,17 +227,15 @@ model CharacterRatingPillar {
 }
 
 model Season {
-  id           String   @id
+  id           String    @id
   seasonNumber Int
   posterUrl    String?
-  ranking      Float    @default(0)
-  createdAt    DateTime @default(now())
+  ranking      Float     @default(0)
+  createdAt    DateTime  @default(now())
   updatedAt    DateTime
-
-  seriesId String
-  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-
-  episodes Episode[]
+  seriesId     String
+  episodes     Episode[]
+  series       Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
 
   @@index([seriesId])
 }
@@ -299,16 +247,15 @@ model Episode {
   ranking       Float    @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime
-
-  seasonId String
-  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  seasonId      String
+  season        Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
   @@index([seasonId])
 }
 
 enum mediaType {
   SERIES
-  CHARACTER 
+  CHARACTER
   EPISODE
-  SEASON 
+  SEASON
 }

@@ -89,15 +89,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Also support GET for easy browser testing in development
+// Vercel cron jobs send GET requests - delegate to POST handler which validates auth
 export async function GET(request: NextRequest) {
-  // Only allow GET in development
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: "Method not allowed. Use POST in production." },
-      { status: 405 }
-    )
-  }
-
   return POST(request)
 }

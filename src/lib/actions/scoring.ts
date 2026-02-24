@@ -368,13 +368,12 @@ export async function updateAllSeriesRankings() {
       orderBy: { score: "desc" },
     })
 
-    // Update rankings
-    for (let i = 0; i < allSeries.length; i++) {
-      await prisma.series.update({
-        where: { id: allSeries[i].id },
-        data: { ranking: i + 1 },
-      })
-    }
+    // Update rankings in a single transaction
+    await prisma.$transaction(
+      allSeries.map((s, i) =>
+        prisma.series.update({ where: { id: s.id }, data: { ranking: i + 1 } })
+      )
+    )
 
     const duration = Date.now() - startTime
     console.log(`[Scoring] Rankings updated in ${duration}ms. Ranked ${allSeries.length} series.`)
@@ -441,6 +440,7 @@ export async function updateAllSeriesScoresAndRankings() {
 export async function getSeriesPillarScores(seriesId: string) {
   try {
     const series = await prisma.series.findUnique({
+      cacheStrategy: { swr: 120, ttl: 60, tags: ["series-scores"] },
       where: { id: seriesId },
       select: { pillarScores: true, score: true },
     })
@@ -468,6 +468,7 @@ export async function getSeriesPillarScores(seriesId: string) {
 export async function getSeriesPillarScoresBySlug(slug: string) {
   try {
     const series = await prisma.series.findUnique({
+      cacheStrategy: { swr: 120, ttl: 60, tags: [`series-scores-${slug}`] },
       where: { slug },
       select: { id: true, pillarScores: true, score: true },
     })
@@ -498,6 +499,7 @@ export async function getSeriesPillarScoresBySlug(slug: string) {
 export async function getCharacterPillarScoresBySlug(slug: string) {
   try {
     const character = await prisma.character.findUnique({
+      cacheStrategy: { swr: 120, ttl: 60, tags: [`character-scores-${slug}`] },
       where: { slug },
       select: { id: true, pillarScores: true, score: true },
     })
@@ -681,12 +683,11 @@ export async function updateAllCharacterRankings() {
       orderBy: { score: "desc" },
     })
 
-    for (let i = 0; i < allCharacters.length; i++) {
-      await prisma.character.update({
-        where: { id: allCharacters[i].id },
-        data: { ranking: i + 1 },
-      })
-    }
+    await prisma.$transaction(
+      allCharacters.map((c, i) =>
+        prisma.character.update({ where: { id: c.id }, data: { ranking: i + 1 } })
+      )
+    )
 
     const duration = Date.now() - startTime
     console.log(`[Scoring] Character rankings updated in ${duration}ms. Ranked ${allCharacters.length} characters.`)
