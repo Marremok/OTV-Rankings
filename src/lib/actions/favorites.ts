@@ -80,10 +80,12 @@ export async function getUserFavorites(userId: string): Promise<GetFavoritesResu
     const seriesMap = new Map(seriesData.map((s) => [s.id, s]))
     const characterMap = new Map(characterData.map((c) => [c.id, c]))
     const seriesScoreMap = new Map(
-      seriesUserScores.map((r) => [r.seriesId, r._avg.score])
+      (seriesUserScores as Array<{ seriesId: string; _avg: { score: number | null } }>)
+        .map((r) => [r.seriesId, r._avg.score])
     )
     const characterScoreMap = new Map(
-      characterUserScores.map((r) => [r.characterId, r._avg.score])
+      (characterUserScores as Array<{ characterId: string; _avg: { score: number | null } }>)
+        .map((r) => [r.characterId, r._avg.score])
     )
 
     const mapToItem = (fav: (typeof favorites)[0]): FavoriteItem | null => {

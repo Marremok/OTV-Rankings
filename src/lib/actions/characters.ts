@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import type { Character, Series } from "@/generated/prisma/client"
 
 export type CharacterWithSeries = Character & { series: Pick<Series, "id" | "title" | "slug"> }
+export type CharacterDetail = Character & { series: Series }
 
 // Input type for creating a character
 export interface CreateCharacterInput {
@@ -117,7 +118,7 @@ export async function getCharacters(): Promise<CharacterWithSeries[]> {
       cacheStrategy: { swr: 60, ttl: 30 },
     }))
 
-    return characters
+    return characters as CharacterWithSeries[]
   } catch (error) {
     console.error("Error fetching characters:", error)
     throw new Error("Failed to fetch characters")
@@ -154,7 +155,7 @@ export async function getCharactersBySeriesId(seriesId: string) {
 /**
  * Get a single character by ID
  */
-export async function getCharacterById(id: string) {
+export async function getCharacterById(id: string): Promise<CharacterDetail | null> {
   try {
     if (!id) {
       throw new Error("Character ID is required")
@@ -168,7 +169,7 @@ export async function getCharacterById(id: string) {
       cacheStrategy: { swr: 120, ttl: 60 },
     }))
 
-    return character
+    return character as CharacterDetail | null
   } catch (error: any) {
     console.error("Error fetching character:", error)
 
@@ -310,7 +311,7 @@ export async function getTopCharacters(limit: number = 10): Promise<CharacterWit
 /**
  * Get a single character by slug
  */
-export async function getCharacterBySlug(slug: string) {
+export async function getCharacterBySlug(slug: string): Promise<CharacterDetail | null> {
   try {
     if (!slug) {
       throw new Error("Slug is required")
@@ -324,7 +325,7 @@ export async function getCharacterBySlug(slug: string) {
       cacheStrategy: { swr: 120, ttl: 60 },
     }))
 
-    return character
+    return character as CharacterDetail | null
   } catch (error: any) {
     console.error("Error fetching character by slug:", error)
 

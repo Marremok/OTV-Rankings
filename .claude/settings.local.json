@@ -10,7 +10,8 @@
       "Bash(ls -la \"c:\\\\Users\\\\maxny\\\\Desktop\\\\otv-rankings\\\\src\\\\components\\\\profile\"\" 2>/dev/null || echo \"Directory not found \")",
       "Bash(ls c:UsersmaxnyDesktopotv-rankingsnext.config.*)",
       "Bash(npm install @neondatabase/serverless @prisma/adapter-neon)",
-      "WebFetch(domain:www.prisma.io)"
+      "WebFetch(domain:www.prisma.io)",
+      "Bash(npx next build)"
     ]
   }
 }

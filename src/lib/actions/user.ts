@@ -2,6 +2,25 @@
 
 import prisma, { withRetry } from "../prisma"
 
+// Prisma Accelerate strips include-based type inference; these types restore relation shapes
+type RpWithRelations = {
+  id: string; score: number; updatedAt: Date;
+  pillar: { id: string; type: string; weight: number }
+  series: { id: string; title: string; slug: string | null; imageUrl: string | null }
+}
+type CrpWithRelations = {
+  id: string; score: number; updatedAt: Date;
+  pillar: { id: string; type: string; weight: number }
+  character: { id: string; name: string; slug: string | null; posterUrl: string | null }
+}
+type StatusWithSeries = {
+  id: string; updatedAt: Date;
+  series: {
+    id: string; title: string; slug: string | null; imageUrl: string | null
+    wideImageUrl: string | null; score: number; genre: string[]; releaseYear: number | null
+  }
+}
+
 // ============================================
 // PUBLIC USER PROFILE TYPES & ACTIONS
 // ============================================
@@ -113,7 +132,7 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
     }
 
     // Fetch user + both rating tables in parallel
-    const [user, ratingPillars, characterRatingPillars] = await withRetry(() => Promise.all([
+    const [user, ratingPillarsRaw, characterRatingPillarsRaw] = await withRetry(() => Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
       prisma.ratingPillar.findMany({
         where: { userId },
@@ -132,6 +151,8 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
         orderBy: { updatedAt: "desc" },
       }),
     ]))
+    const ratingPillars = ratingPillarsRaw as unknown as RpWithRelations[]
+    const characterRatingPillars = characterRatingPillarsRaw as unknown as CrpWithRelations[]
 
     if (!user) {
       return null
@@ -256,7 +277,7 @@ export async function getUserStats(userId: string): Promise<UserProfileStats | n
       throw new Error("User ID is required")
     }
 
-    const [rpCount, crpCount, rpAvg, crpAvg, rpHigh, crpHigh, rpLow, crpLow] =
+    const [rpCount, crpCount, rpAvg, crpAvg, rpHighRaw, crpHighRaw, rpLowRaw, crpLowRaw] =
       await withRetry(() => Promise.all([
         prisma.ratingPillar.count({ where: { userId } }),
         prisma.characterRatingPillar.count({ where: { userId } }),
@@ -283,6 +304,12 @@ export async function getUserStats(userId: string): Promise<UserProfileStats | n
           include: { character: { select: { name: true, slug: true } } },
         }),
       ]))
+    type RpWithSeries = { score: number; series: { title: string; slug: string | null } } | null
+    type CrpWithChar  = { score: number; character: { name: string; slug: string | null } } | null
+    const rpHigh  = rpHighRaw  as unknown as RpWithSeries
+    const crpHigh = crpHighRaw as unknown as CrpWithChar
+    const rpLow   = rpLowRaw   as unknown as RpWithSeries
+    const crpLow  = crpLowRaw  as unknown as CrpWithChar
 
     const totalRatings = rpCount + crpCount
 
@@ -346,7 +373,7 @@ export async function getUserRecentRatings(
       throw new Error("User ID is required")
     }
 
-    const [ratingPillars, characterRatingPillars] = await withRetry(() => Promise.all([
+    const [ratingPillarsRaw, characterRatingPillarsRaw] = await withRetry(() => Promise.all([
       prisma.ratingPillar.findMany({
         where: { userId },
         include: {
@@ -366,6 +393,8 @@ export async function getUserRecentRatings(
         take: limit,
       }),
     ]))
+    const ratingPillars = ratingPillarsRaw as unknown as RpWithRelations[]
+    const characterRatingPillars = characterRatingPillarsRaw as unknown as CrpWithRelations[]
 
     const combined: RecentRating[] = [
       ...ratingPillars.map((rp) => ({
@@ -406,7 +435,7 @@ export async function getUserPillarBreakdown(userId: string): Promise<PillarBrea
       throw new Error("User ID is required")
     }
 
-    const ratingPillars = await withRetry(() => prisma.ratingPillar.findMany({
+    const ratingPillarsRaw = await withRetry(() => prisma.ratingPillar.findMany({
       where: { userId },
       include: {
         pillar: {
@@ -418,6 +447,7 @@ export async function getUserPillarBreakdown(userId: string): Promise<PillarBrea
         },
       },
     }))
+    const ratingPillars = ratingPillarsRaw as unknown as RpWithRelations[]
 
     // Group by pillar type
     const pillarMap: Record<
@@ -469,7 +499,7 @@ export async function getUserHighestRating(userId: string): Promise<HighestRatin
       throw new Error("User ID is required")
     }
 
-    const highestRating = await withRetry(() => prisma.ratingPillar.findFirst({
+    const highestRatingRaw = await withRetry(() => prisma.ratingPillar.findFirst({
       where: { userId },
       orderBy: { score: "desc" },
       include: {
@@ -489,6 +519,7 @@ export async function getUserHighestRating(userId: string): Promise<HighestRatin
         },
       },
     }))
+    const highestRating = highestRatingRaw as unknown as RpWithRelations | null
 
     if (!highestRating) {
       return null
@@ -635,7 +666,7 @@ export async function getUserCurrentlyWatching(
       return []
     }
 
-    const statuses = await withRetry(() => prisma.userSeriesStatus.findMany({
+    const statusesRaw = await withRetry(() => prisma.userSeriesStatus.findMany({
       where: {
         userId,
         isWatching: true,
@@ -653,6 +684,7 @@ export async function getUserCurrentlyWatching(
       },
       orderBy: { updatedAt: "desc" },
     }))
+    const statuses = statusesRaw as unknown as StatusWithSeries[]
 
     return statuses.map((status) => ({
       id: status.id,
@@ -827,7 +859,7 @@ export async function getUserSeriesByStatus(
       ...(status === "watching" && { isWatching: true }),
     };
 
-    const statuses = await withRetry(() => prisma.userSeriesStatus.findMany({
+    const statusesRaw = await withRetry(() => prisma.userSeriesStatus.findMany({
       where: whereClause,
       include: {
         series: {
@@ -844,6 +876,7 @@ export async function getUserSeriesByStatus(
       },
       orderBy: { updatedAt: "desc" },
     }));
+    const statuses = statusesRaw as unknown as StatusWithSeries[]
 
     return statuses.map((s) => ({
       id: s.id,

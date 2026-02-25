@@ -3,6 +3,7 @@
 import prisma, { withRetry } from "../prisma"
 import { revalidatePath } from "next/cache"
 import { mediaType } from "@/generated/prisma/enums"
+import type { Pillar, Question, RatingPillar, CharacterRatingPillar } from "@/generated/prisma/client"
 import {
   createPillarSchema,
   editPillarSchema,
@@ -10,6 +11,10 @@ import {
   createCharacterRatingPillarSchema,
   safeValidate,
 } from "@/lib/validations"
+
+export type PillarWithQuestions = Pillar & { questions: Question[] }
+export type RatingPillarWithPillar = RatingPillar & { pillar: Pillar }
+export type CharacterRatingPillarWithPillar = CharacterRatingPillar & { pillar: Pillar }
 
 // ============================================
 // PILLAR TEMPLATE ACTIONS (Admin)
@@ -78,7 +83,7 @@ export async function createPillar(input: CreatePillarInput) {
 /**
  * Fetches all pillar templates, optionally filtered by mediaType
  */
-export async function getPillars(mediaTypeFilter?: mediaType) {
+export async function getPillars(mediaTypeFilter?: mediaType): Promise<PillarWithQuestions[]> {
   try {
     const pillars = await withRetry(() => prisma.pillar.findMany({
       where: mediaTypeFilter ? { mediaType: mediaTypeFilter } : undefined,
@@ -87,7 +92,7 @@ export async function getPillars(mediaTypeFilter?: mediaType) {
       cacheStrategy: { swr: 600, ttl: 300 },
     }))
 
-    return pillars
+    return pillars as PillarWithQuestions[]
   } catch (error) {
     console.error("Error fetching pillars:", error)
     throw new Error("Failed to fetch pillars")
@@ -97,7 +102,7 @@ export async function getPillars(mediaTypeFilter?: mediaType) {
 /**
  * Fetches all pillar templates with questions for admin view
  */
-export async function getAllPillars() {
+export async function getAllPillars(): Promise<PillarWithQuestions[]> {
   try {
     const pillars = await withRetry(() => prisma.pillar.findMany({
       include: {
@@ -109,7 +114,7 @@ export async function getAllPillars() {
       cacheStrategy: { swr: 600, ttl: 300 },
     }))
 
-    return pillars
+    return pillars as PillarWithQuestions[]
   } catch (error) {
     console.error("Error fetching all pillars:", error)
     throw new Error("Failed to fetch pillars")
@@ -119,7 +124,7 @@ export async function getAllPillars() {
 /**
  * Fetches a single pillar by ID with its questions
  */
-export async function getPillarById(id: string) {
+export async function getPillarById(id: string): Promise<PillarWithQuestions | null> {
   try {
     const pillar = await withRetry(() => prisma.pillar.findUnique({
       where: { id },
@@ -131,7 +136,7 @@ export async function getPillarById(id: string) {
       cacheStrategy: { swr: 600, ttl: 300 },
     }))
 
-    return pillar
+    return pillar as PillarWithQuestions | null
   } catch (error) {
     console.error("Error fetching pillar:", error)
     throw new Error("Failed to fetch pillar")
@@ -379,7 +384,7 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
  * Fetches all rating pillars for a user on a specific series
  * Returns the user's existing ratings to display in the UI
  */
-export async function getUserRatingPillars(userId: string, seriesId: string) {
+export async function getUserRatingPillars(userId: string, seriesId: string): Promise<RatingPillarWithPillar[]> {
   try {
     if (!userId) {
       throw new Error("User ID is required")
@@ -401,7 +406,7 @@ export async function getUserRatingPillars(userId: string, seriesId: string) {
       },
     }))
 
-    return ratingPillars
+    return ratingPillars as RatingPillarWithPillar[]
   } catch (error) {
     console.error("Error fetching user rating pillars:", error)
     throw new Error("Failed to fetch user ratings")
@@ -412,7 +417,7 @@ export async function getUserRatingPillars(userId: string, seriesId: string) {
  * Fetches all rating pillars for a user across multiple series
  * Returns a map of seriesId -> user ratings for efficient lookup
  */
-export async function getUserRatingsForMultipleSeries(userId: string, seriesIds: string[]) {
+export async function getUserRatingsForMultipleSeries(userId: string, seriesIds: string[]): Promise<Record<string, RatingPillarWithPillar[]>> {
   try {
     if (!userId) {
       return {}
@@ -440,7 +445,7 @@ export async function getUserRatingsForMultipleSeries(userId: string, seriesIds:
       ratingsMap[rating.seriesId].push(rating)
     }
 
-    return ratingsMap
+    return ratingsMap as Record<string, RatingPillarWithPillar[]>
   } catch (error) {
     console.error("Error fetching user ratings for multiple series:", error)
     return {}
@@ -510,7 +515,7 @@ export async function createCharacterRatingPillar(input: CreateCharacterRatingPi
  * Fetches all rating pillars for a user on a specific character.
  * Mirrors getUserRatingPillars.
  */
-export async function getUserCharacterRatingPillars(userId: string, characterId: string) {
+export async function getUserCharacterRatingPillars(userId: string, characterId: string): Promise<CharacterRatingPillarWithPillar[]> {
   try {
     if (!userId)      throw new Error("User ID is required")
     if (!characterId) throw new Error("Character ID is required")
@@ -519,7 +524,7 @@ export async function getUserCharacterRatingPillars(userId: string, characterId:
       where:   { userId, characterId },
       include: { pillar: true },
       orderBy: { createdAt: "asc" },
-    }))
+    })) as CharacterRatingPillarWithPillar[]
   } catch (error) {
     console.error("Error fetching user character rating pillars:", error)
     throw new Error("Failed to fetch user character ratings")
@@ -531,7 +536,7 @@ export async function getUserCharacterRatingPillars(userId: string, characterId:
  * Returns a map of characterId -> user ratings for efficient lookup.
  * Mirrors getUserRatingsForMultipleSeries.
  */
-export async function getUserRatingsForMultipleCharacters(userId: string, characterIds: string[]) {
+export async function getUserRatingsForMultipleCharacters(userId: string, characterIds: string[]): Promise<Record<string, CharacterRatingPillarWithPillar[]>> {
   try {
     if (!userId) return {}
     if (!characterIds.length) return {}
@@ -555,7 +560,7 @@ export async function getUserRatingsForMultipleCharacters(userId: string, charac
       ratingsMap[rating.characterId].push(rating)
     }
 
-    return ratingsMap
+    return ratingsMap as Record<string, CharacterRatingPillarWithPillar[]>
   } catch (error) {
     console.error("Error fetching user ratings for multiple characters:", error)
     return {}

@@ -206,7 +206,7 @@ export async function quickSearchCharacters(
       slug: c.slug,
       posterUrl: c.posterUrl,
       score: c.score,
-      seriesTitle: c.series.title,
+      seriesTitle: (c as typeof c & { series: { title: string } }).series.title,
     }));
   } catch (error) {
     console.error("Error in quick character search:", error);

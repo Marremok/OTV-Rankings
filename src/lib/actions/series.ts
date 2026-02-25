@@ -2,6 +2,10 @@
 
 import prisma, { withRetry } from "../prisma"
 import { revalidatePath } from "next/cache"
+import type { Series, RatingPillar, Pillar } from "@/generated/prisma/client"
+
+export type SeriesWithRatingPillars = Series & { ratingPillars: RatingPillar[] }
+export type SeriesDetail = Series & { ratingPillars: (RatingPillar & { pillar: Pillar })[] }
 
 // Input type for creating a series
 export interface CreateSeriesInput {
@@ -101,7 +105,7 @@ export async function createSeries(input: CreateSeriesInput) {
   }
 }
 
-export async function getSeries() {
+export async function getSeries(): Promise<SeriesWithRatingPillars[]> {
   try {
     const series = await withRetry(() => prisma.series.findMany({
       include: { ratingPillars: true },
@@ -109,14 +113,14 @@ export async function getSeries() {
       cacheStrategy: { swr: 60, ttl: 30 },
     }))
 
-    return series
+    return series as SeriesWithRatingPillars[]
   } catch (error) {
     console.error("Error fetching series:", error)
     throw new Error("Failed to fetch series")
   }
 }
 
-export async function getTop10Series() {
+export async function getTop10Series(): Promise<SeriesWithRatingPillars[]> {
   try {
     const series = await withRetry(() => prisma.series.findMany({
       include: { ratingPillars: true },
@@ -125,14 +129,14 @@ export async function getTop10Series() {
       cacheStrategy: { swr: 60, ttl: 30 },
     }))
 
-    return series
+    return series as SeriesWithRatingPillars[]
   } catch (error) {
     console.error("Error fetching top 10 series:", error)
     throw new Error("Failed to fetch top 10 series")
   }
 }
 
-export async function getTop100Series() {
+export async function getTop100Series(): Promise<SeriesWithRatingPillars[]> {
   try {
     const series = await withRetry(() => prisma.series.findMany({
       include: { ratingPillars: true },
@@ -141,14 +145,14 @@ export async function getTop100Series() {
       cacheStrategy: { swr: 60, ttl: 30 },
     }))
 
-    return series
+    return series as SeriesWithRatingPillars[]
   } catch (error) {
     console.error("Error fetching top 100 series:", error)
     throw new Error("Failed to fetch top 100 series")
   }
 }
 
-export async function getSeriesBySlug(slug: string) {
+export async function getSeriesBySlug(slug: string): Promise<SeriesDetail | null> {
   try {
     const series = await withRetry(() => prisma.series.findUnique({
       where: { slug },
@@ -162,7 +166,7 @@ export async function getSeriesBySlug(slug: string) {
       cacheStrategy: { swr: 120, ttl: 60 },
     }))
 
-    return series
+    return series as SeriesDetail | null
   } catch (error) {
     console.error("Error fetching series by slug:", error)
     throw new Error("Failed to fetch series")
