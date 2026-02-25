@@ -1,6 +1,6 @@
 "use server"
 
-import prisma from "../prisma"
+import prisma, { withRetry } from "../prisma"
 
 // ============================================
 // PUBLIC USER PROFILE TYPES & ACTIONS
@@ -24,7 +24,7 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
       return null;
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await withRetry(() => prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -35,7 +35,7 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
         createdAt: true,
       },
       cacheStrategy: { swr: 120, ttl: 60 },
-    });
+    }));
 
     return user;
   } catch (error) {
@@ -113,7 +113,7 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
     }
 
     // Fetch user + both rating tables in parallel
-    const [user, ratingPillars, characterRatingPillars] = await Promise.all([
+    const [user, ratingPillars, characterRatingPillars] = await withRetry(() => Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
       prisma.ratingPillar.findMany({
         where: { userId },
@@ -131,7 +131,7 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
         },
         orderBy: { updatedAt: "desc" },
       }),
-    ])
+    ]))
 
     if (!user) {
       return null
@@ -257,7 +257,7 @@ export async function getUserStats(userId: string): Promise<UserProfileStats | n
     }
 
     const [rpCount, crpCount, rpAvg, crpAvg, rpHigh, crpHigh, rpLow, crpLow] =
-      await Promise.all([
+      await withRetry(() => Promise.all([
         prisma.ratingPillar.count({ where: { userId } }),
         prisma.characterRatingPillar.count({ where: { userId } }),
         prisma.ratingPillar.aggregate({ where: { userId }, _avg: { score: true } }),
@@ -282,7 +282,7 @@ export async function getUserStats(userId: string): Promise<UserProfileStats | n
           orderBy: { score: "asc" },
           include: { character: { select: { name: true, slug: true } } },
         }),
-      ])
+      ]))
 
     const totalRatings = rpCount + crpCount
 
@@ -346,7 +346,7 @@ export async function getUserRecentRatings(
       throw new Error("User ID is required")
     }
 
-    const [ratingPillars, characterRatingPillars] = await Promise.all([
+    const [ratingPillars, characterRatingPillars] = await withRetry(() => Promise.all([
       prisma.ratingPillar.findMany({
         where: { userId },
         include: {
@@ -365,7 +365,7 @@ export async function getUserRecentRatings(
         orderBy: { updatedAt: "desc" },
         take: limit,
       }),
-    ])
+    ]))
 
     const combined: RecentRating[] = [
       ...ratingPillars.map((rp) => ({
@@ -406,7 +406,7 @@ export async function getUserPillarBreakdown(userId: string): Promise<PillarBrea
       throw new Error("User ID is required")
     }
 
-    const ratingPillars = await prisma.ratingPillar.findMany({
+    const ratingPillars = await withRetry(() => prisma.ratingPillar.findMany({
       where: { userId },
       include: {
         pillar: {
@@ -417,7 +417,7 @@ export async function getUserPillarBreakdown(userId: string): Promise<PillarBrea
           },
         },
       },
-    })
+    }))
 
     // Group by pillar type
     const pillarMap: Record<
@@ -469,7 +469,7 @@ export async function getUserHighestRating(userId: string): Promise<HighestRatin
       throw new Error("User ID is required")
     }
 
-    const highestRating = await prisma.ratingPillar.findFirst({
+    const highestRating = await withRetry(() => prisma.ratingPillar.findFirst({
       where: { userId },
       orderBy: { score: "desc" },
       include: {
@@ -488,7 +488,7 @@ export async function getUserHighestRating(userId: string): Promise<HighestRatin
           },
         },
       },
-    })
+    }))
 
     if (!highestRating) {
       return null
@@ -526,13 +526,13 @@ export async function updateUserProfileImage(
       return { success: false, error: "User ID is required" }
     }
 
-    await prisma.user.update({
+    await withRetry(() => prisma.user.update({
       where: { id: userId },
       data: {
         profileImage: imageUrl,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     return { success: true }
   } catch (error) {
@@ -553,13 +553,13 @@ export async function updateUserHeroImage(
       return { success: false, error: "User ID is required" }
     }
 
-    await prisma.user.update({
+    await withRetry(() => prisma.user.update({
       where: { id: userId },
       data: {
         heroImage: imageUrl,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     return { success: true }
   } catch (error) {
@@ -579,13 +579,13 @@ export async function getUserImages(
       return null
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await withRetry(() => prisma.user.findUnique({
       where: { id: userId },
       select: {
         profileImage: true,
         heroImage: true,
       },
-    })
+    }))
 
     return user
   } catch (error) {
@@ -635,7 +635,7 @@ export async function getUserCurrentlyWatching(
       return []
     }
 
-    const statuses = await prisma.userSeriesStatus.findMany({
+    const statuses = await withRetry(() => prisma.userSeriesStatus.findMany({
       where: {
         userId,
         isWatching: true,
@@ -652,7 +652,7 @@ export async function getUserCurrentlyWatching(
         },
       },
       orderBy: { updatedAt: "desc" },
-    })
+    }))
 
     return statuses.map((status) => ({
       id: status.id,
@@ -685,12 +685,12 @@ export async function getUserSeriesStatusCounts(
       return { watchlist: 0, seen: 0, watching: 0, favorites: 0 }
     }
 
-    const [watchlist, seen, watching, favorites] = await Promise.all([
+    const [watchlist, seen, watching, favorites] = await withRetry(() => Promise.all([
       prisma.userSeriesStatus.count({ where: { userId, isWatchlist: true } }),
       prisma.userSeriesStatus.count({ where: { userId, isSeen: true } }),
       prisma.userSeriesStatus.count({ where: { userId, isWatching: true } }),
       prisma.userSeriesStatus.count({ where: { userId, isFavorite: true } }),
-    ])
+    ]))
 
     return { watchlist, seen, watching, favorites }
   } catch (error) {
@@ -728,7 +728,7 @@ export async function updateUserSeriesStatus(
       cascadeStatus.isWatchlist = false
     }
 
-    await prisma.userSeriesStatus.upsert({
+    await withRetry(() => prisma.userSeriesStatus.upsert({
       where: {
         userId_seriesId: { userId, seriesId },
       },
@@ -744,7 +744,7 @@ export async function updateUserSeriesStatus(
         isWatching: cascadeStatus.isWatching ?? false,
         isFavorite: cascadeStatus.isFavorite ?? false,
       },
-    })
+    }))
 
     return { success: true }
   } catch (error) {
@@ -770,7 +770,7 @@ export async function getSeriesStatusForUser(
       return null
     }
 
-    const status = await prisma.userSeriesStatus.findUnique({
+    const status = await withRetry(() => prisma.userSeriesStatus.findUnique({
       where: {
         userId_seriesId: { userId, seriesId },
       },
@@ -780,7 +780,7 @@ export async function getSeriesStatusForUser(
         isWatching: true,
         isFavorite: true,
       },
-    })
+    }))
 
     return status ?? { isWatchlist: false, isSeen: false, isWatching: false, isFavorite: false }
   } catch (error) {
@@ -827,7 +827,7 @@ export async function getUserSeriesByStatus(
       ...(status === "watching" && { isWatching: true }),
     };
 
-    const statuses = await prisma.userSeriesStatus.findMany({
+    const statuses = await withRetry(() => prisma.userSeriesStatus.findMany({
       where: whereClause,
       include: {
         series: {
@@ -843,7 +843,7 @@ export async function getUserSeriesByStatus(
         },
       },
       orderBy: { updatedAt: "desc" },
-    });
+    }));
 
     return statuses.map((s) => ({
       id: s.id,

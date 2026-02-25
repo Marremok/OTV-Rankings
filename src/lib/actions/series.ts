@@ -1,6 +1,6 @@
 "use server"
 
-import prisma from "../prisma"
+import prisma, { withRetry } from "../prisma"
 import { revalidatePath } from "next/cache"
 
 // Input type for creating a series
@@ -62,7 +62,7 @@ export async function createSeries(input: CreateSeriesInput) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
 
-    const series = await prisma.series.create({
+    const series = await withRetry(() => prisma.series.create({
       data: {
         id: crypto.randomUUID(),
         title: input.title.trim(),
@@ -77,7 +77,7 @@ export async function createSeries(input: CreateSeriesInput) {
         ranking: 0, // Default ranking
         updatedAt: new Date(),
       },
-    })
+    }))
 
     revalidatePath("/admin")
 
@@ -103,11 +103,11 @@ export async function createSeries(input: CreateSeriesInput) {
 
 export async function getSeries() {
   try {
-    const series = await prisma.series.findMany({
+    const series = await withRetry(() => prisma.series.findMany({
       include: { ratingPillars: true },
       orderBy: { createdAt: "asc" },
       cacheStrategy: { swr: 60, ttl: 30 },
-    })
+    }))
 
     return series
   } catch (error) {
@@ -118,12 +118,12 @@ export async function getSeries() {
 
 export async function getTop10Series() {
   try {
-    const series = await prisma.series.findMany({
+    const series = await withRetry(() => prisma.series.findMany({
       include: { ratingPillars: true },
       orderBy: { score: "desc" },
       take: 10,
       cacheStrategy: { swr: 60, ttl: 30 },
-    })
+    }))
 
     return series
   } catch (error) {
@@ -134,12 +134,12 @@ export async function getTop10Series() {
 
 export async function getTop100Series() {
   try {
-    const series = await prisma.series.findMany({
+    const series = await withRetry(() => prisma.series.findMany({
       include: { ratingPillars: true },
       orderBy: { score: "desc" },
       take: 100,
       cacheStrategy: { swr: 60, ttl: 30 },
-    })
+    }))
 
     return series
   } catch (error) {
@@ -150,7 +150,7 @@ export async function getTop100Series() {
 
 export async function getSeriesBySlug(slug: string) {
   try {
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { slug },
       include: {
         ratingPillars: {
@@ -160,7 +160,7 @@ export async function getSeriesBySlug(slug: string) {
         },
       },
       cacheStrategy: { swr: 120, ttl: 60 },
-    })
+    }))
 
     return series
   } catch (error) {
@@ -226,10 +226,10 @@ export async function editSeries(input: EditSeriesInput) {
     }
 
     // Check that the series exists
-    const currentSeries = await prisma.series.findUnique({
+    const currentSeries = await withRetry(() => prisma.series.findUnique({
       where: { id: input.id },
       select: { slug: true },
-    })
+    }))
 
     if (!currentSeries) {
       throw new Error("Series not found")
@@ -243,16 +243,16 @@ export async function editSeries(input: EditSeriesInput) {
 
     // If slug is being changed, check for duplicates
     if (newSlug !== currentSeries.slug) {
-      const existingSeries = await prisma.series.findUnique({
+      const existingSeries = await withRetry(() => prisma.series.findUnique({
         where: { slug: newSlug },
-      })
+      }))
 
       if (existingSeries) {
         throw new Error("A series with this slug already exists")
       }
     }
 
-    const series = await prisma.series.update({
+    const series = await withRetry(() => prisma.series.update({
       where: { id: input.id },
       data: {
         title: input.title.trim(),
@@ -265,7 +265,7 @@ export async function editSeries(input: EditSeriesInput) {
         seasons: input.seasons || null,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     revalidatePath("/admin")
     revalidatePath(`/series/${newSlug}`)
@@ -307,9 +307,9 @@ export async function deleteSeries(id: string) {
       throw new Error("Series ID is required")
     }
 
-    await prisma.series.delete({
+    await withRetry(() => prisma.series.delete({
       where: { id },
-    })
+    }))
 
     revalidatePath("/admin")
 

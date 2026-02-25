@@ -1,10 +1,10 @@
 "use server"
 
-import prisma from "../prisma"
+import prisma, { withRetry } from "../prisma"
 import { revalidatePath } from "next/cache"
 import type { Character, Series } from "@/generated/prisma/client"
 
-type CharacterWithSeries = Character & { series: Pick<Series, "id" | "title" | "slug"> }
+export type CharacterWithSeries = Character & { series: Pick<Series, "id" | "title" | "slug"> }
 
 // Input type for creating a character
 export interface CreateCharacterInput {
@@ -32,10 +32,10 @@ export async function createCharacter(input: CreateCharacterInput) {
     }
 
     // Verify series exists and get slug for revalidation
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { id: input.seriesId },
       select: { slug: true },
-    })
+    }))
 
     if (!series) {
       throw new Error("Series not found")
@@ -56,7 +56,7 @@ export async function createCharacter(input: CreateCharacterInput) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
 
-    const character = await prisma.character.create({
+    const character = await withRetry(() => prisma.character.create({
       data: {
         id: crypto.randomUUID(),
         name: input.name.trim(),
@@ -68,7 +68,7 @@ export async function createCharacter(input: CreateCharacterInput) {
         ranking: 0,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     revalidatePath("/admin")
     revalidatePath("/rankings/characters")
@@ -101,9 +101,9 @@ export async function createCharacter(input: CreateCharacterInput) {
 /**
  * Get all characters with their series info
  */
-export async function getCharacters() {
+export async function getCharacters(): Promise<CharacterWithSeries[]> {
   try {
-    const characters = await prisma.character.findMany({
+    const characters = await withRetry(() => prisma.character.findMany({
       include: {
         series: {
           select: {
@@ -115,7 +115,7 @@ export async function getCharacters() {
       },
       orderBy: { createdAt: "desc" },
       cacheStrategy: { swr: 60, ttl: 30 },
-    })
+    }))
 
     return characters
   } catch (error) {
@@ -133,11 +133,11 @@ export async function getCharactersBySeriesId(seriesId: string) {
       throw new Error("Series ID is required")
     }
 
-    const characters = await prisma.character.findMany({
+    const characters = await withRetry(() => prisma.character.findMany({
       where: { seriesId },
       orderBy: { ranking: "desc" },
       cacheStrategy: { swr: 120, ttl: 60 },
-    })
+    }))
 
     return characters
   } catch (error: any) {
@@ -160,13 +160,13 @@ export async function getCharacterById(id: string) {
       throw new Error("Character ID is required")
     }
 
-    const character = await prisma.character.findUnique({
+    const character = await withRetry(() => prisma.character.findUnique({
       where: { id },
       include: {
         series: true,
       },
       cacheStrategy: { swr: 120, ttl: 60 },
-    })
+    }))
 
     return character
   } catch (error: any) {
@@ -219,10 +219,10 @@ export async function editCharacter(input: EditCharacterInput) {
     }
 
     // Verify series exists
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { id: input.seriesId },
       select: { slug: true },
-    })
+    }))
 
     if (!series) {
       throw new Error("Series not found")
@@ -234,7 +234,7 @@ export async function editCharacter(input: EditCharacterInput) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
 
-    const character = await prisma.character.update({
+    const character = await withRetry(() => prisma.character.update({
       where: { id: input.id },
       data: {
         name: input.name.trim(),
@@ -250,7 +250,7 @@ export async function editCharacter(input: EditCharacterInput) {
           select: { slug: true },
         },
       },
-    })
+    }))
 
     revalidatePath("/admin")
     revalidatePath("/rankings/characters")
@@ -289,7 +289,7 @@ export async function editCharacter(input: EditCharacterInput) {
  */
 export async function getTopCharacters(limit: number = 10): Promise<CharacterWithSeries[]> {
   try {
-    const characters = await prisma.character.findMany({
+    const characters = await withRetry(() => prisma.character.findMany({
       include: {
         series: {
           select: { id: true, title: true, slug: true },
@@ -298,7 +298,7 @@ export async function getTopCharacters(limit: number = 10): Promise<CharacterWit
       orderBy: { ranking: "desc" },
       take: limit,
       cacheStrategy: { swr: 60, ttl: 30 },
-    })
+    }))
 
     return characters as CharacterWithSeries[]
   } catch (error) {
@@ -316,13 +316,13 @@ export async function getCharacterBySlug(slug: string) {
       throw new Error("Slug is required")
     }
 
-    const character = await prisma.character.findUnique({
+    const character = await withRetry(() => prisma.character.findUnique({
       where: { slug },
       include: {
         series: true,
       },
       cacheStrategy: { swr: 120, ttl: 60 },
-    })
+    }))
 
     return character
   } catch (error: any) {
@@ -346,22 +346,22 @@ export async function deleteCharacter(id: string) {
     }
 
     // Get character with series info before deletion for revalidation
-    const character = await prisma.character.findUnique({
+    const character = await withRetry(() => prisma.character.findUnique({
       where: { id },
       include: {
         series: {
           select: { slug: true },
         },
       },
-    })
+    }))
 
     if (!character) {
       throw new Error("Character not found")
     }
 
-    await prisma.character.delete({
+    await withRetry(() => prisma.character.delete({
       where: { id },
-    })
+    }))
 
     revalidatePath("/admin")
     if (character.series?.slug) {

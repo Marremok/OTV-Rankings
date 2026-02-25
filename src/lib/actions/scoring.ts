@@ -1,6 +1,6 @@
 "use server"
 
-import prisma from "../prisma"
+import prisma, { withRetry } from "../prisma"
 import { revalidatePath } from "next/cache"
 import { Prisma } from "@/generated/prisma/client"
 
@@ -34,7 +34,7 @@ export interface SeriesPillarScores {
  */
 async function aggregatePillarScoresForSeries(seriesId: string): Promise<SeriesPillarScores> {
   // Get all rating pillars for this series with pillar template info
-  const ratingPillars = await prisma.ratingPillar.findMany({
+  const ratingPillars = await withRetry(() => prisma.ratingPillar.findMany({
     where: { seriesId },
     include: {
       pillar: {
@@ -45,7 +45,7 @@ async function aggregatePillarScoresForSeries(seriesId: string): Promise<SeriesP
         },
       },
     },
-  })
+  }))
 
   // Group ratings by pillar type
   const pillarGroups: Record<string, {
@@ -130,13 +130,13 @@ export async function updateSeriesPillarScores(seriesId: string) {
   try {
     const pillarScores = await aggregatePillarScoresForSeries(seriesId)
 
-    await prisma.series.update({
+    await withRetry(() => prisma.series.update({
       where: { id: seriesId },
       data: {
         pillarScores: pillarScores as object,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     return pillarScores
   } catch (error) {
@@ -153,10 +153,10 @@ export async function updateSeriesPillarScores(seriesId: string) {
  */
 export async function updateSeriesOverallScore(seriesId: string) {
   try {
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { id: seriesId },
       select: { pillarScores: true },
-    })
+    }))
 
     if (!series) {
       throw new Error("Series not found")
@@ -165,13 +165,13 @@ export async function updateSeriesOverallScore(seriesId: string) {
     const pillarScores = (series.pillarScores as unknown as SeriesPillarScores) || {}
     const overallScore = calculateOverallScore(pillarScores)
 
-    await prisma.series.update({
+    await withRetry(() => prisma.series.update({
       where: { id: seriesId },
       data: {
         score: overallScore,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     return overallScore
   } catch (error) {
@@ -191,20 +191,20 @@ export async function updateSeriesScores(seriesId: string) {
     const pillarScores = await aggregatePillarScoresForSeries(seriesId)
     const overallScore = calculateOverallScore(pillarScores)
 
-    await prisma.series.update({
+    await withRetry(() => prisma.series.update({
       where: { id: seriesId },
       data: {
         pillarScores: pillarScores as object,
         score: overallScore,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     // Revalidate the series page cache
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { id: seriesId },
       select: { slug: true },
-    })
+    }))
 
     if (series?.slug) {
       revalidatePath(`/series/${series.slug}`)
@@ -237,14 +237,14 @@ export async function updateAllSeriesScores() {
 
   try {
     // Get all series IDs
-    const allSeries = await prisma.series.findMany({
+    const allSeries = await withRetry(() => prisma.series.findMany({
       select: { id: true, slug: true },
-    })
+    }))
 
     console.log(`[Scoring] Found ${allSeries.length} series to update`)
 
     // Get all rating pillars with pillar info in one query (avoiding N+1)
-    const allRatingPillars = await prisma.ratingPillar.findMany({
+    const allRatingPillars = await withRetry(() => prisma.ratingPillar.findMany({
       include: {
         pillar: {
           select: {
@@ -254,7 +254,7 @@ export async function updateAllSeriesScores() {
           },
         },
       },
-    })
+    }))
 
     console.log(`[Scoring] Found ${allRatingPillars.length} total rating pillars`)
 
@@ -315,14 +315,14 @@ export async function updateAllSeriesScores() {
       const overallScore = calculateOverallScore(pillarScores)
 
       // Update series in database
-      await prisma.series.update({
+      await withRetry(() => prisma.series.update({
         where: { id: series.id },
         data: {
           pillarScores: Object.keys(pillarScores).length > 0 ? (pillarScores as object) : Prisma.JsonNull,
           score: overallScore,
           updatedAt: new Date(),
         },
-      })
+      }))
 
       results.push({
         seriesId: series.id,
@@ -363,17 +363,17 @@ export async function updateAllSeriesRankings() {
 
   try {
     // Get all series ordered by score descending
-    const allSeries = await prisma.series.findMany({
+    const allSeries = await withRetry(() => prisma.series.findMany({
       select: { id: true, score: true },
       orderBy: { score: "desc" },
-    })
+    }))
 
     // Update rankings in a single transaction
-    await prisma.$transaction(
+    await withRetry(() => prisma.$transaction(
       allSeries.map((s, i) =>
         prisma.series.update({ where: { id: s.id }, data: { ranking: i + 1 } })
       )
-    )
+    ))
 
     const duration = Date.now() - startTime
     console.log(`[Scoring] Rankings updated in ${duration}ms. Ranked ${allSeries.length} series.`)
@@ -439,11 +439,11 @@ export async function updateAllSeriesScoresAndRankings() {
  */
 export async function getSeriesPillarScores(seriesId: string) {
   try {
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { id: seriesId },
       select: { pillarScores: true, score: true },
       cacheStrategy: { swr: 120, ttl: 60 },
-    })
+    }))
 
     if (!series) {
       throw new Error("Series not found")
@@ -467,11 +467,11 @@ export async function getSeriesPillarScores(seriesId: string) {
  */
 export async function getSeriesPillarScoresBySlug(slug: string) {
   try {
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { slug },
       select: { id: true, pillarScores: true, score: true },
       cacheStrategy: { swr: 120, ttl: 60 },
-    })
+    }))
 
     if (!series) {
       throw new Error("Series not found")
@@ -498,11 +498,11 @@ export async function getSeriesPillarScoresBySlug(slug: string) {
  */
 export async function getCharacterPillarScoresBySlug(slug: string) {
   try {
-    const character = await prisma.character.findUnique({
+    const character = await withRetry(() => prisma.character.findUnique({
       where: { slug },
       select: { id: true, pillarScores: true, score: true },
       cacheStrategy: { swr: 120, ttl: 60 },
-    })
+    }))
 
     if (!character) {
       throw new Error("Character not found")
@@ -526,12 +526,12 @@ export async function getCharacterPillarScoresBySlug(slug: string) {
 export async function updateCharacterScores(characterId: string) {
   try {
     // Aggregate CharacterRatingPillar rows for this character
-    const ratingPillars = await prisma.characterRatingPillar.findMany({
+    const ratingPillars = await withRetry(() => prisma.characterRatingPillar.findMany({
       where: { characterId },
       include: {
         pillar: { select: { id: true, type: true, weight: true } },
       },
-    })
+    }))
 
     const pillarGroups: Record<string, {
       scores: number[]
@@ -562,19 +562,19 @@ export async function updateCharacterScores(characterId: string) {
 
     const overallScore = calculateOverallScore(pillarScores)
 
-    await prisma.character.update({
+    await withRetry(() => prisma.character.update({
       where: { id: characterId },
       data: {
         pillarScores: pillarScores as object,
         score:        overallScore,
         updatedAt:    new Date(),
       },
-    })
+    }))
 
-    const character = await prisma.character.findUnique({
+    const character = await withRetry(() => prisma.character.findUnique({
       where: { id: characterId },
       select: { slug: true },
-    })
+    }))
     if (character?.slug) {
       revalidatePath(`/characters/${character.slug}`)
     }
@@ -595,15 +595,15 @@ export async function updateAllCharacterScores() {
   const startTime = Date.now()
 
   try {
-    const allCharacters = await prisma.character.findMany({
+    const allCharacters = await withRetry(() => prisma.character.findMany({
       select: { id: true, slug: true },
-    })
+    }))
 
-    const allRatingPillars = await prisma.characterRatingPillar.findMany({
+    const allRatingPillars = await withRetry(() => prisma.characterRatingPillar.findMany({
       include: {
         pillar: { select: { id: true, type: true, weight: true } },
       },
-    })
+    }))
 
     const ratingsByCharacterId: Record<string, typeof allRatingPillars> = {}
     for (const r of allRatingPillars) {
@@ -645,14 +645,14 @@ export async function updateAllCharacterScores() {
 
       const overallScore = calculateOverallScore(pillarScores)
 
-      await prisma.character.update({
+      await withRetry(() => prisma.character.update({
         where: { id: character.id },
         data: {
           pillarScores: Object.keys(pillarScores).length > 0 ? (pillarScores as object) : Prisma.JsonNull,
           score:        overallScore,
           updatedAt:    new Date(),
         },
-      })
+      }))
 
       results.push({ characterId: character.id, slug: character.slug, score: overallScore, pillarCount: Object.keys(pillarScores).length })
     }
@@ -678,16 +678,16 @@ export async function updateAllCharacterRankings() {
   const startTime = Date.now()
 
   try {
-    const allCharacters = await prisma.character.findMany({
+    const allCharacters = await withRetry(() => prisma.character.findMany({
       select: { id: true, score: true },
       orderBy: { score: "desc" },
-    })
+    }))
 
-    await prisma.$transaction(
+    await withRetry(() => prisma.$transaction(
       allCharacters.map((c, i) =>
         prisma.character.update({ where: { id: c.id }, data: { ranking: i + 1 } })
       )
-    )
+    ))
 
     const duration = Date.now() - startTime
     console.log(`[Scoring] Character rankings updated in ${duration}ms. Ranked ${allCharacters.length} characters.`)

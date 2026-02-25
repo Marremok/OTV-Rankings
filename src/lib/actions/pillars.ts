@@ -1,6 +1,6 @@
 "use server"
 
-import prisma from "../prisma"
+import prisma, { withRetry } from "../prisma"
 import { revalidatePath } from "next/cache"
 import { mediaType } from "@/generated/prisma/enums"
 import {
@@ -43,7 +43,7 @@ export async function createPillar(input: CreatePillarInput) {
       throw new Error("Weight must be between 0 and 10")
     }
 
-    const pillar = await prisma.pillar.create({
+    const pillar = await withRetry(() => prisma.pillar.create({
       data: {
         id: crypto.randomUUID(),
         type: input.type.trim().toLowerCase(),
@@ -53,7 +53,7 @@ export async function createPillar(input: CreatePillarInput) {
         weight: input.weight ?? 1.0,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     revalidatePath("/admin")
 
@@ -80,12 +80,12 @@ export async function createPillar(input: CreatePillarInput) {
  */
 export async function getPillars(mediaTypeFilter?: mediaType) {
   try {
-    const pillars = await prisma.pillar.findMany({
+    const pillars = await withRetry(() => prisma.pillar.findMany({
       where: mediaTypeFilter ? { mediaType: mediaTypeFilter } : undefined,
       include: { questions: true },
       orderBy: { createdAt: "asc" },
       cacheStrategy: { swr: 600, ttl: 300 },
-    })
+    }))
 
     return pillars
   } catch (error) {
@@ -99,7 +99,7 @@ export async function getPillars(mediaTypeFilter?: mediaType) {
  */
 export async function getAllPillars() {
   try {
-    const pillars = await prisma.pillar.findMany({
+    const pillars = await withRetry(() => prisma.pillar.findMany({
       include: {
         questions: {
           orderBy: { createdAt: "asc" },
@@ -107,7 +107,7 @@ export async function getAllPillars() {
       },
       orderBy: { createdAt: "desc" },
       cacheStrategy: { swr: 600, ttl: 300 },
-    })
+    }))
 
     return pillars
   } catch (error) {
@@ -121,7 +121,7 @@ export async function getAllPillars() {
  */
 export async function getPillarById(id: string) {
   try {
-    const pillar = await prisma.pillar.findUnique({
+    const pillar = await withRetry(() => prisma.pillar.findUnique({
       where: { id },
       include: {
         questions: {
@@ -129,7 +129,7 @@ export async function getPillarById(id: string) {
         },
       },
       cacheStrategy: { swr: 600, ttl: 300 },
-    })
+    }))
 
     return pillar
   } catch (error) {
@@ -147,9 +147,9 @@ export async function deletePillar(id: string) {
       throw new Error("Pillar ID is required")
     }
 
-    await prisma.pillar.delete({
+    await withRetry(() => prisma.pillar.delete({
       where: { id },
-    })
+    }))
 
     revalidatePath("/admin")
 
@@ -197,10 +197,10 @@ export async function editPillar(input: EditPillarInput) {
     }
 
     // Check that the pillar exists
-    const currentPillar = await prisma.pillar.findUnique({
+    const currentPillar = await withRetry(() => prisma.pillar.findUnique({
       where: { id: input.id },
       select: { type: true, mediaType: true },
-    })
+    }))
 
     if (!currentPillar) {
       throw new Error("Pillar not found")
@@ -210,17 +210,17 @@ export async function editPillar(input: EditPillarInput) {
     const newType = input.type.trim().toLowerCase()
     const newMediaType = input.mediaType
     if (newType !== currentPillar.type || newMediaType !== currentPillar.mediaType) {
-      const existingPillar = await prisma.pillar.findFirst({
+      const existingPillar = await withRetry(() => prisma.pillar.findFirst({
         where: { type: newType, mediaType: newMediaType },
         select: { id: true },
-      })
+      }))
 
       if (existingPillar && existingPillar.id !== input.id) {
         throw new Error("A pillar with this type already exists for this media type")
       }
     }
 
-    const pillar = await prisma.pillar.update({
+    const pillar = await withRetry(() => prisma.pillar.update({
       where: { id: input.id },
       data: {
         type: newType,
@@ -230,7 +230,7 @@ export async function editPillar(input: EditPillarInput) {
         weight: input.weight ?? 1.0,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     revalidatePath("/admin")
 
@@ -288,17 +288,17 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
     const validatedInput = validation.data
 
     // Verify pillar exists
-    const pillar = await prisma.pillar.findUnique({
+    const pillar = await withRetry(() => prisma.pillar.findUnique({
       where: { id: validatedInput.pillarId },
-    })
+    }))
     if (!pillar) {
       throw new Error("Pillar not found")
     }
 
     // Verify series exists
-    const series = await prisma.series.findUnique({
+    const series = await withRetry(() => prisma.series.findUnique({
       where: { id: validatedInput.seriesId },
-    })
+    }))
     if (!series) {
       throw new Error("Series not found")
     }
@@ -307,7 +307,7 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
     const roundedScore = Math.round(validatedInput.finalScore * 100) / 100
 
     // Upsert the rating pillar (create or update if exists)
-    const ratingPillar = await prisma.ratingPillar.upsert({
+    const ratingPillar = await withRetry(() => prisma.ratingPillar.upsert({
       where: {
         userId_seriesId_pillarId: {
           userId: validatedInput.userId,
@@ -327,7 +327,7 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
         score: roundedScore,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     // NOTE: Series scores are NOT updated immediately.
     // They are recalculated periodically via:
@@ -336,7 +336,7 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
     // This avoids O(n) aggregation on every rating submission.
 
     // Auto-mark series as seen when any pillar is rated
-    await prisma.userSeriesStatus.upsert({
+    await withRetry(() => prisma.userSeriesStatus.upsert({
       where: {
         userId_seriesId: {
           userId: validatedInput.userId,
@@ -356,7 +356,7 @@ export async function createRatingPillar(input: CreateRatingPillarInput) {
         isWatchlist: false,
         isWatching: false,
       },
-    })
+    }))
 
     return ratingPillar
   } catch (error: any) {
@@ -388,7 +388,7 @@ export async function getUserRatingPillars(userId: string, seriesId: string) {
       throw new Error("Series ID is required")
     }
 
-    const ratingPillars = await prisma.ratingPillar.findMany({
+    const ratingPillars = await withRetry(() => prisma.ratingPillar.findMany({
       where: {
         userId,
         seriesId,
@@ -399,7 +399,7 @@ export async function getUserRatingPillars(userId: string, seriesId: string) {
       orderBy: {
         createdAt: "asc",
       },
-    })
+    }))
 
     return ratingPillars
   } catch (error) {
@@ -421,7 +421,7 @@ export async function getUserRatingsForMultipleSeries(userId: string, seriesIds:
       return {}
     }
 
-    const ratingPillars = await prisma.ratingPillar.findMany({
+    const ratingPillars = await withRetry(() => prisma.ratingPillar.findMany({
       where: {
         userId,
         seriesId: { in: seriesIds },
@@ -429,7 +429,7 @@ export async function getUserRatingsForMultipleSeries(userId: string, seriesIds:
       include: {
         pillar: true,
       },
-    })
+    }))
 
     // Group by seriesId
     const ratingsMap: Record<string, typeof ratingPillars> = {}
@@ -468,15 +468,15 @@ export async function createCharacterRatingPillar(input: CreateCharacterRatingPi
     if (!validation.success) throw new Error(validation.error)
     const v = validation.data
 
-    const pillar = await prisma.pillar.findUnique({ where: { id: v.pillarId } })
+    const pillar = await withRetry(() => prisma.pillar.findUnique({ where: { id: v.pillarId } }))
     if (!pillar) throw new Error("Pillar not found")
 
-    const character = await prisma.character.findUnique({ where: { id: v.characterId } })
+    const character = await withRetry(() => prisma.character.findUnique({ where: { id: v.characterId } }))
     if (!character) throw new Error("Character not found")
 
     const roundedScore = Math.round(v.finalScore * 100) / 100
 
-    const ratingPillar = await prisma.characterRatingPillar.upsert({
+    const ratingPillar = await withRetry(() => prisma.characterRatingPillar.upsert({
       where: {
         userId_characterId_pillarId: {
           userId:      v.userId,
@@ -496,7 +496,7 @@ export async function createCharacterRatingPillar(input: CreateCharacterRatingPi
         score:     roundedScore,
         updatedAt: new Date(),
       },
-    })
+    }))
 
     return ratingPillar
   } catch (error: any) {
@@ -515,11 +515,11 @@ export async function getUserCharacterRatingPillars(userId: string, characterId:
     if (!userId)      throw new Error("User ID is required")
     if (!characterId) throw new Error("Character ID is required")
 
-    return await prisma.characterRatingPillar.findMany({
+    return await withRetry(() => prisma.characterRatingPillar.findMany({
       where:   { userId, characterId },
       include: { pillar: true },
       orderBy: { createdAt: "asc" },
-    })
+    }))
   } catch (error) {
     console.error("Error fetching user character rating pillars:", error)
     throw new Error("Failed to fetch user character ratings")
@@ -536,7 +536,7 @@ export async function getUserRatingsForMultipleCharacters(userId: string, charac
     if (!userId) return {}
     if (!characterIds.length) return {}
 
-    const ratingPillars = await prisma.characterRatingPillar.findMany({
+    const ratingPillars = await withRetry(() => prisma.characterRatingPillar.findMany({
       where: {
         userId,
         characterId: { in: characterIds },
@@ -544,7 +544,7 @@ export async function getUserRatingsForMultipleCharacters(userId: string, charac
       include: {
         pillar: true,
       },
-    })
+    }))
 
     // Group by characterId
     const ratingsMap: Record<string, typeof ratingPillars> = {}
@@ -567,10 +567,10 @@ export async function getUserRatingsForMultipleCharacters(userId: string, charac
  */
 export async function getPillarCount(mediaTypeFilter: mediaType) {
   try {
-    const count = await prisma.pillar.count({
+    const count = await withRetry(() => prisma.pillar.count({
       where: { mediaType: mediaTypeFilter },
       cacheStrategy: { swr: 300, ttl: 120 },
-    })
+    }))
     return count
   } catch (error) {
     console.error("Error getting pillar count:", error)

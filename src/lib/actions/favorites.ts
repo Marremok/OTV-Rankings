@@ -1,6 +1,6 @@
 "use server"
 
-import prisma from "../prisma"
+import prisma, { withRetry } from "../prisma"
 
 // ============================================
 // FAVORITES TYPES
@@ -34,10 +34,10 @@ export async function getUserFavorites(userId: string): Promise<GetFavoritesResu
   try {
     if (!userId) return { series: [], characters: [] }
 
-    const favorites = await prisma.userFavorite.findMany({
+    const favorites = await withRetry(() => prisma.userFavorite.findMany({
       where: { userId },
       orderBy: [{ mediaType: "asc" }, { rank: "asc" }],
-    })
+    }))
 
     const seriesFavs = favorites.filter((f) => f.mediaType === "SERIES")
     const characterFavs = favorites.filter((f) => f.mediaType === "CHARACTER")
@@ -47,34 +47,34 @@ export async function getUserFavorites(userId: string): Promise<GetFavoritesResu
 
     // Batch fetch media data + user scores in parallel
     const [seriesData, characterData, seriesUserScores, characterUserScores] =
-      await Promise.all([
+      await withRetry(() => Promise.all([
         seriesIds.length > 0
           ? prisma.series.findMany({
               where: { id: { in: seriesIds } },
               select: { id: true, title: true, slug: true, imageUrl: true, score: true },
             })
-          : [],
+          : Promise.resolve([]),
         characterIds.length > 0
           ? prisma.character.findMany({
               where: { id: { in: characterIds } },
               select: { id: true, name: true, slug: true, posterUrl: true, score: true },
             })
-          : [],
+          : Promise.resolve([]),
         seriesIds.length > 0
           ? prisma.ratingPillar.groupBy({
               by: ["seriesId"],
               where: { userId, seriesId: { in: seriesIds } },
               _avg: { score: true },
             })
-          : [],
+          : Promise.resolve([]),
         characterIds.length > 0
           ? prisma.characterRatingPillar.groupBy({
               by: ["characterId"],
               where: { userId, characterId: { in: characterIds } },
               _avg: { score: true },
             })
-          : [],
-      ])
+          : Promise.resolve([]),
+      ]))
 
     // Build lookup maps
     const seriesMap = new Map(seriesData.map((s) => [s.id, s]))
@@ -153,10 +153,10 @@ export async function setUserFavorite(
     }
 
     // Fetch all current favorites for this user + mediaType
-    const current = await prisma.userFavorite.findMany({
+    const current = await withRetry(() => prisma.userFavorite.findMany({
       where: { userId, mediaType },
       orderBy: { rank: "asc" },
-    })
+    }))
 
     // Remove any existing entry for this mediaId (it may be at a different rank)
     const withoutThis = current.filter((f) => f.mediaId !== mediaId)
@@ -178,7 +178,7 @@ export async function setUserFavorite(
     ]
 
     // Atomically replace all favorites for this mediaType
-    await prisma.$transaction([
+    await withRetry(() => prisma.$transaction([
       prisma.userFavorite.deleteMany({ where: { userId, mediaType } }),
       prisma.userFavorite.createMany({
         data: newEntries.map((e) => ({
@@ -190,23 +190,23 @@ export async function setUserFavorite(
           updatedAt: new Date(),
         })),
       }),
-    ])
+    ]))
 
     // Sync UserSeriesStatus.isFavorite for SERIES type
     if (mediaType === "SERIES") {
       // Set isFavorite=true for the newly added series
-      await prisma.userSeriesStatus.upsert({
+      await withRetry(() => prisma.userSeriesStatus.upsert({
         where: { userId_seriesId: { userId, seriesId: mediaId } },
         create: { userId, seriesId: mediaId, isFavorite: true },
         update: { isFavorite: true },
-      })
+      }))
       // Set isFavorite=false for the series that was displaced from the target rank (if any)
       const ejectedSeries = withoutThis.find((f) => f.rank === rank)
       if (ejectedSeries) {
-        await prisma.userSeriesStatus.updateMany({
+        await withRetry(() => prisma.userSeriesStatus.updateMany({
           where: { userId, seriesId: ejectedSeries.mediaId },
           data: { isFavorite: false },
-        })
+        }))
       }
     }
 
@@ -235,15 +235,15 @@ export async function removeUserFavorite(
     }
 
     // Fetch all remaining after removal, sorted by current rank
-    const remaining = await prisma.userFavorite.findMany({
+    const remaining = await withRetry(() => prisma.userFavorite.findMany({
       where: { userId, mediaType, NOT: { mediaId } },
       orderBy: { rank: "asc" },
-    })
+    }))
 
     // Recompact: assign sequential ranks 1, 2, 3...
     const recompacted = remaining.map((f, i) => ({ mediaId: f.mediaId, rank: i + 1 }))
 
-    await prisma.$transaction([
+    await withRetry(() => prisma.$transaction([
       prisma.userFavorite.deleteMany({ where: { userId, mediaType } }),
       ...(recompacted.length > 0
         ? [
@@ -259,14 +259,14 @@ export async function removeUserFavorite(
             }),
           ]
         : []),
-    ])
+    ]))
 
     // Sync UserSeriesStatus.isFavorite for SERIES type
     if (mediaType === "SERIES") {
-      await prisma.userSeriesStatus.updateMany({
+      await withRetry(() => prisma.userSeriesStatus.updateMany({
         where: { userId, seriesId: mediaId },
         data: { isFavorite: false },
-      })
+      }))
     }
 
     return { success: true }
@@ -297,7 +297,7 @@ export async function reorderUserFavorites(
       return { success: false, error: "Ranks must be between 1 and 4" }
     }
 
-    await prisma.$transaction([
+    await withRetry(() => prisma.$transaction([
       prisma.userFavorite.deleteMany({ where: { userId, mediaType } }),
       prisma.userFavorite.createMany({
         data: newOrder.map((o) => ({
@@ -309,7 +309,7 @@ export async function reorderUserFavorites(
           updatedAt: new Date(),
         })),
       }),
-    ])
+    ]))
 
     return { success: true }
   } catch (error) {
@@ -343,9 +343,9 @@ export async function toggleFavoriteFromSeriesPage(
     }
 
     // Check if already a favorite
-    const existing = await prisma.userFavorite.findFirst({
+    const existing = await withRetry(() => prisma.userFavorite.findFirst({
       where: { userId, mediaType: "SERIES", mediaId: seriesId },
-    })
+    }))
 
     if (existing) {
       await removeUserFavorite(userId, "SERIES", seriesId)
@@ -353,10 +353,10 @@ export async function toggleFavoriteFromSeriesPage(
     }
 
     // Count current SERIES favorites
-    const currentFavs = await prisma.userFavorite.findMany({
+    const currentFavs = await withRetry(() => prisma.userFavorite.findMany({
       where: { userId, mediaType: "SERIES" },
       orderBy: { rank: "asc" },
-    })
+    }))
 
     if (currentFavs.length >= 4) {
       // Return current favorites so UI can show replace dialog
