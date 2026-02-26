@@ -107,8 +107,8 @@ export default function EpisodesRankingPage() {
                     {/* Score */}
                     <div className="flex items-center gap-2 pr-4 shrink-0">
                       <div className={cn(
-                        "flex h-12 w-12 flex-col items-center justify-center rounded-full border-2 transition-colors",
-                        getScoreColor(episode.score).border,
+                        "flex h-12 w-12 flex-col items-center justify-center rounded-full ring-2 transition-colors",
+                        getScoreColor(episode.score).ring,
                       )}>
                         <span className={cn("text-lg font-black leading-none", getScoreColor(episode.score).text)}>
                           {episode.score.toFixed(1)}

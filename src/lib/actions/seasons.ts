@@ -110,7 +110,12 @@ export async function createSeason(input: CreateSeasonInput) {
 /**
  * Get all seasons with their series info
  */
-export async function getSeasons() {
+export type SeasonListItem = Season & {
+  episodes: Episode[]
+  series: { id: string; title: string; slug: string | null } | null
+}
+
+export async function getSeasons(): Promise<SeasonListItem[]> {
   try {
     const seasons = await withRetry(() => prisma.season.findMany({
       include: {
@@ -121,7 +126,7 @@ export async function getSeasons() {
       cacheStrategy: { swr: 60, ttl: 30 },
     }))
 
-    return seasons
+    return seasons as unknown as SeasonListItem[]
   } catch (error) {
     console.error("Error fetching seasons:", error)
     throw new Error("Failed to fetch seasons")
@@ -131,7 +136,7 @@ export async function getSeasons() {
 /**
  * Get seasons by series ID (ordered by season number)
  */
-export async function getSeasonsBySeriesId(seriesId: string) {
+export async function getSeasonsBySeriesId(seriesId: string): Promise<SeasonWithEpisodes[]> {
   try {
     if (!seriesId) {
       throw new Error("Series ID is required")
@@ -146,7 +151,7 @@ export async function getSeasonsBySeriesId(seriesId: string) {
       cacheStrategy: { swr: 120, ttl: 60 },
     }))
 
-    return seasons
+    return seasons as unknown as SeasonWithEpisodes[]
   } catch (error: any) {
     console.error("Error fetching seasons by series:", error)
 

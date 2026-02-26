@@ -96,7 +96,7 @@ async function searchSeasons(query: string, limit: number): Promise<SeasonSearch
     seasonNumber: s.seasonNumber,
     posterUrl: s.posterUrl,
     score: s.score,
-    seriesTitle: s.series?.title ?? null,
+    seriesTitle: (s as any).series?.title ?? null,
   }));
 }
 
@@ -120,8 +120,8 @@ async function searchEpisodes(query: string, limit: number): Promise<EpisodeSear
     slug: e.slug,
     episodeNumber: e.episodeNumber,
     score: e.score,
-    seriesTitle: e.season?.series?.title ?? null,
-    seasonNumber: e.season?.seasonNumber ?? null,
+    seriesTitle: (e as any).season?.series?.title ?? null,
+    seasonNumber: (e as any).season?.seasonNumber ?? null,
   }));
 }
 

@@ -122,7 +122,7 @@ function SeasonManagement() {
                     {(season as any).series?.title || "Unknown Series"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {season.episodes?.length ?? 0} episodes
+                    {(season as any).episodes?.length ?? 0} episodes
                   </p>
                 </div>
 
