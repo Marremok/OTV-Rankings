@@ -1,6 +1,7 @@
 // Card components
 export {
   StatCard,
+  MediaRatingStatCard,
   RecentRatingCard,
   PillarBreakdownCard,
   HighestRatingCard,
@@ -8,7 +9,7 @@ export {
   RecentRatingSkeleton,
   PillarBreakdownSkeleton,
 } from "./cards";
-export type { StatCardProps, RecentRatingCardProps, PillarBreakdownCardProps, HighestRatingCardProps } from "./cards";
+export type { StatCardProps, MediaRatingStatCardProps, RecentRatingCardProps, PillarBreakdownCardProps, HighestRatingCardProps } from "./cards";
 
 // Image upload components
 export { ImageUploadDialog } from "./image-upload";

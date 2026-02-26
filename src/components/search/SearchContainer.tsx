@@ -74,7 +74,7 @@ export function SearchContainer({ className }: SearchContainerProps) {
             onChange={setQuery}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            placeholder="Search series, users..."
+            placeholder="Search series, seasons, episodes, characters..."
             className="w-full xl:w-60"
           />
         </div>

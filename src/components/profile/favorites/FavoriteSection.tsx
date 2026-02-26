@@ -182,7 +182,7 @@ export function FavoriteSection({ userId, isOwner, mediaType, title, ownerName }
             {title}
           </h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-2 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="aspect-2/3 rounded-xl bg-zinc-800/60 animate-pulse" />
           ))}
@@ -231,7 +231,7 @@ export function FavoriteSection({ userId, isOwner, mediaType, title, ownerName }
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-4 gap-2 sm:gap-4">
               {slots.map((item, idx) => (
                 <SortableFavoriteCard
                   key={sortableIds[idx]}
@@ -250,12 +250,12 @@ export function FavoriteSection({ userId, isOwner, mediaType, title, ownerName }
           </SortableContext>
         </DndContext>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {slots.map((item, idx) => (
+        <div className="grid grid-cols-4 gap-2 sm:gap-4">
+          {items.map((item) => (
             <FavoriteCard
-              key={item?.id ?? `empty-${idx + 1}`}
+              key={item.id}
               item={item}
-              rank={idx + 1}
+              rank={item.rank}
               isOwner={isOwner}
               isEditMode={false}
               mediaType={mediaType}

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Tv, ChevronRight, Trophy, User, Star } from "lucide-react";
+import { Tv, ChevronRight, Trophy, TrendingDown, User, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { RecentRating, PillarBreakdown, HighestRating } from "@/lib/actions/user";
+import { RecentRating, PillarBreakdown, HighestRating, UserProfileStats } from "@/lib/actions/user";
 import { getPillarIcon, getPillarColor, getScoreColor } from "@/components/seriespage/pillar-utils";
 import { capitalize, formatDate } from "./utils";
 
@@ -404,4 +404,102 @@ export function PillarBreakdownSkeleton({ index }: { index: number }) {
       </div>
     </div>
   );
+}
+
+// ============================================
+// COMPONENT: Media Rating Stat Card (Highest / Lowest)
+// ============================================
+
+export interface MediaRatingStatCardProps {
+  variant: "highest" | "lowest"
+  rating: UserProfileStats["highestRating"] | null
+  isLoading?: boolean
+}
+
+export function MediaRatingStatCard({ variant, rating, isLoading = false }: MediaRatingStatCardProps) {
+  const isHighest = variant === "highest"
+  const Icon = isHighest ? Trophy : TrendingDown
+  const accentColor = isHighest ? "text-amber-400" : "text-zinc-400"
+  const label = isHighest ? "Highest Rating" : "Lowest Rating"
+  const emptyText = isHighest ? "Rate media to see your highest" : "Rate media to see your lowest"
+
+  if (isLoading) {
+    return (
+      <div className="relative p-5 rounded-xl border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-sm animate-pulse">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-14 rounded-lg bg-zinc-800/60 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="h-3 w-20 bg-zinc-800/60 rounded mb-2" />
+            <div className="h-5 w-28 bg-zinc-800/60 rounded mb-2" />
+            <div className="h-3 w-14 bg-zinc-800/60 rounded" />
+          </div>
+          <div className="h-8 w-12 bg-zinc-800/60 rounded shrink-0" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!rating) {
+    return (
+      <div className="relative p-5 rounded-xl border border-dashed border-zinc-800/60 bg-zinc-900/20">
+        <div className="flex flex-col items-center justify-center gap-2 py-1">
+          <Icon className={cn("w-8 h-8", accentColor, "opacity-40")} />
+          <p className="text-sm text-zinc-500">{label}</p>
+          <p className="text-xs text-zinc-600 text-center">{emptyText}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const href = rating.mediaType === "character"
+    ? (rating.slug ? `/characters/${rating.slug}` : "#")
+    : (rating.slug ? `/series/${rating.slug}` : "#")
+
+  const FallbackIcon = rating.mediaType === "character" ? User : Tv
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group relative flex items-start gap-3 p-5 rounded-xl transition-all duration-500",
+        "border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-sm",
+        "hover:border-zinc-700/60 hover:bg-zinc-900/60 hover:scale-[1.01]"
+      )}
+    >
+      {/* Poster thumbnail */}
+      <div className="shrink-0 w-10 h-14 rounded-lg overflow-hidden bg-zinc-800">
+        {rating.imageUrl ? (
+          <img src={rating.imageUrl} alt={rating.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <FallbackIcon className="w-4 h-4 text-zinc-600" />
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-1">
+          <Icon className={cn("w-3.5 h-3.5", accentColor)} />
+          <span className={cn("text-[10px] font-semibold uppercase tracking-wide", accentColor)}>{label}</span>
+        </div>
+        <p className="text-sm font-semibold text-zinc-200 truncate group-hover:text-white transition-colors">{rating.title}</p>
+        <span className="text-[10px] text-zinc-600 capitalize">{rating.mediaType}</span>
+      </div>
+
+      {/* Score */}
+      <div className="shrink-0 text-right">
+        <span className={cn("text-xl font-bold tabular-nums", getScoreColor(rating.score).text)}>
+          {rating.score.toFixed(2)}
+        </span>
+        <p className="text-xs text-zinc-600">score</p>
+      </div>
+
+      {/* Left accent bar */}
+      <div className={cn(
+        "absolute top-0 bottom-0 left-0 w-1 rounded-l-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500",
+        isHighest ? "bg-linear-to-b from-amber-400 to-amber-600" : "bg-linear-to-b from-zinc-500 to-zinc-600"
+      )} />
+    </Link>
+  )
 }

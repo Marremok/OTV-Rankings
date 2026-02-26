@@ -1,9 +1,9 @@
 "use client"
 
-import { ArrowRight, LucideIcon, Loader2, User } from "lucide-react";
+import { ArrowRight, LucideIcon, Loader2, User, Layers, ImageIcon } from "lucide-react";
 import { Card, CardContent, CardTitle } from "../ui/card";
 import Link from "next/link";
-import { useGetTop10Series, useGetTop10Characters } from "@/hooks/use-rankings";
+import { useGetTop10Series, useGetTop10Characters, useGetTop10Seasons, useGetTop10Episodes } from "@/hooks/use-rankings";
 import { cn } from "@/lib/utils";
 import { getScoreColor } from "@/components/seriespage/pillar-utils";
 
@@ -55,9 +55,22 @@ export default function RankingSection({ title, icon: Icon, slug, rankingType }:
     isError: charactersError,
   } = useGetTop10Characters();
 
+  const {
+    data: seasons = [],
+    isLoading: seasonsLoading,
+    isError: seasonsError,
+  } = useGetTop10Seasons();
+
+  const {
+    data: episodes = [],
+    isLoading: episodesLoading,
+    isError: episodesError,
+  } = useGetTop10Episodes();
+
   const isSeriesType = rankingType === "series";
   const isCharactersType = rankingType === "characters";
-  const isPlaceholderType = !isSeriesType && !isCharactersType;
+  const isSeasonsType = rankingType === "seasons";
+  const isEpisodesType = rankingType === "episodes";
 
   return (
     <Card className="bg-background border-none w-full mb-3">
@@ -241,9 +254,112 @@ export default function RankingSection({ title, icon: Icon, slug, rankingType }:
           </div>
         )}
 
-        {/* ─── SEASONS / EPISODES — placeholder ─── */}
-        {isPlaceholderType && (
-          <p className="text-muted-foreground py-8 text-center">Support for {TYPE_LABELS[rankingType]} coming soon</p>
+        {/* ─── SEASONS ─── */}
+        {isSeasonsType && seasonsLoading && (
+          <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>
+        )}
+        {isSeasonsType && seasonsError && (
+          <p className="text-destructive py-8 text-center">Failed to load seasons.</p>
+        )}
+        {isSeasonsType && !seasonsLoading && !seasonsError && seasons.length === 0 && (
+          <p className="text-muted-foreground py-8 text-center">No seasons added yet</p>
+        )}
+        {isSeasonsType && seasons.length > 0 && (
+          <div className="flex space-x-4 overflow-x-auto pb-2">
+            {seasons.slice(0, 6).map((s, index) => (
+              <Link
+                key={s.id}
+                href={s.slug ? `/seasons/${s.slug}` : "#"}
+                className="group relative w-36 sm:w-40 shrink-0 cursor-pointer flex flex-col gap-3"
+              >
+                <div className="relative aspect-2/3 w-full overflow-hidden rounded-xl bg-muted shadow-sm transition-all duration-250 group-hover:shadow-lg group-hover:-translate-y-0.4">
+                  {s.posterUrl ? (
+                    <img src={s.posterUrl} alt={`Season ${s.seasonNumber}`} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center bg-zinc-900">
+                      <Layers className="size-10 text-zinc-700" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+                  <div className="absolute top-0 left-3">
+                    <div className="relative flex h-8 w-6 items-center justify-center bg-primary shadow-md rounded-b-sm">
+                      <span className="text-sm font-bold text-primary-foreground">{index + 1}</span>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-2 right-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 shadow-md backdrop-blur-sm ring-1 ring-black/5 dark:bg-black/90 dark:ring-white/10">
+                      <span className={cn("text-xs font-bold transition-colors", getScoreColor(s.score).text)}>{s.score.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1 px-1">
+                  <h3 className="text-me font-semibold leading-tight text-foreground line-clamp-2 group-hover:underline decoration-2 underline-offset-4 decoration-primary/50">
+                    Season {s.seasonNumber}{s.name ? `: ${s.name}` : ""}
+                  </h3>
+                  {(s as any).series?.title && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-tight bg-muted/80 text-muted-foreground dark:bg-secondary/40 dark:text-secondary-foreground border border-border/40 transition-all group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20">
+                      {(s as any).series.title}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+            <ViewAllCard href={`/rankings/${slug}`} />
+          </div>
+        )}
+
+        {/* ─── EPISODES ─── */}
+        {isEpisodesType && episodesLoading && (
+          <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>
+        )}
+        {isEpisodesType && episodesError && (
+          <p className="text-destructive py-8 text-center">Failed to load episodes.</p>
+        )}
+        {isEpisodesType && !episodesLoading && !episodesError && episodes.length === 0 && (
+          <p className="text-muted-foreground py-8 text-center">No episodes added yet</p>
+        )}
+        {isEpisodesType && episodes.length > 0 && (
+          <div className="flex space-x-4 overflow-x-auto pb-2">
+            {episodes.slice(0, 6).map((e, index) => (
+              <Link
+                key={e.id}
+                href={e.slug ? `/episodes/${e.slug}` : "#"}
+                className="group relative w-48 sm:w-56 shrink-0 cursor-pointer flex flex-col gap-3"
+              >
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted shadow-sm transition-all duration-250 group-hover:shadow-lg group-hover:-translate-y-0.4">
+                  {e.heroImageUrl ? (
+                    <img src={e.heroImageUrl} alt={e.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center bg-zinc-900">
+                      <ImageIcon className="size-8 text-zinc-700" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+                  <div className="absolute top-0 left-3">
+                    <div className="relative flex h-8 w-6 items-center justify-center bg-primary shadow-md rounded-b-sm">
+                      <span className="text-sm font-bold text-primary-foreground">{index + 1}</span>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-2 right-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 shadow-md backdrop-blur-sm ring-1 ring-black/5 dark:bg-black/90 dark:ring-white/10">
+                      <span className={cn("text-xs font-bold transition-colors", getScoreColor(e.score).text)}>{e.score.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1 px-1">
+                  <h3 className="text-me font-semibold leading-tight text-foreground line-clamp-2 group-hover:underline decoration-2 underline-offset-4 decoration-primary/50">
+                    {e.title}
+                  </h3>
+                  {(e as any).season && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-tight bg-muted/80 text-muted-foreground dark:bg-secondary/40 dark:text-secondary-foreground border border-border/40 transition-all group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20">
+                      S{(e as any).season.seasonNumber}E{e.episodeNumber} · {(e as any).season.series?.title}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+            <ViewAllCard href={`/rankings/${slug}`} />
+          </div>
         )}
       </CardContent>
     </Card>

@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { Github, Twitter, Instagram } from "lucide-react"; // Se till att du har lucide-react installerat (standard i shadcn)
+import { Instagram, Youtube } from "lucide-react";
+
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.2 8.2 0 0 0 4.79 1.52V6.75a4.85 4.85 0 0 1-1.02-.06z" />
+    </svg>
+  );
+}
 
 export default function Footer() {
   return (
@@ -70,17 +78,17 @@ export default function Footer() {
           <div className="flex flex-col space-y-4">
             <h3 className="font-semibold text-lg">Connect</h3>
             <div className="flex items-center gap-4">
-              <Link href="https://github.com" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
-                <Github className="w-5 h-5" />
-                <span className="sr-only">GitHub</span>
+              <Link href="#" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
+                <TikTokIcon className="w-5 h-5" />
+                <span className="sr-only">TikTok</span>
               </Link>
-              <Link href="https://twitter.com" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
-                <Twitter className="w-5 h-5" />
-                <span className="sr-only">Twitter</span>
-              </Link>
-              <Link href="https://instagram.com" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
+              <Link href="#" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
                 <Instagram className="w-5 h-5" />
                 <span className="sr-only">Instagram</span>
+              </Link>
+              <Link href="#" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
+                <Youtube className="w-5 h-5" />
+                <span className="sr-only">YouTube</span>
               </Link>
             </div>
           </div>

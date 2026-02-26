@@ -103,8 +103,8 @@ export default function CharactersRankingPage() {
 
                   {/* Rank badge */}
                   <div className="absolute left-0 top-0 z-30">
-                    <div className="relative flex h-12 w-16 items-center justify-center overflow-hidden border-b border-r border-white/20 bg-black/60 backdrop-blur-xl">
-                      <span className="relative z-10 font-mono text-xl font-black italic tracking-tighter text-white">
+                    <div className="relative flex h-8 w-10 sm:h-12 sm:w-16 items-center justify-center overflow-hidden border-b border-r border-white/20 bg-black/60 backdrop-blur-xl">
+                      <span className="relative z-10 font-mono text-sm sm:text-xl font-black italic tracking-tighter text-white">
                         #{String(index + 1).padStart(2, "0")}
                       </span>
                       <div className="absolute inset-0 bg-linear-to-b from-primary/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-pulse" />

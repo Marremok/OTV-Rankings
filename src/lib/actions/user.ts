@@ -81,8 +81,8 @@ export interface HighestRating {
 export interface UserProfileStats {
   totalRatings: number
   avgScore: number
-  highestRating: { score: number; title: string; slug: string | null } | null
-  lowestRating: { score: number; title: string; slug: string | null } | null
+  highestRating: { score: number; title: string; slug: string | null; mediaType: "series" | "character"; imageUrl: string | null } | null
+  lowestRating: { score: number; title: string; slug: string | null; mediaType: "series" | "character"; imageUrl: string | null } | null
 }
 
 export interface RecentRating {
@@ -170,35 +170,45 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
         ? Math.round((allScores.reduce((s, v) => s + v, 0) / allScores.length) * 100) / 100
         : 0
 
-    // Highest & lowest rating across both tables
-    const allRatingsForMinMax = [
-      ...ratingPillars.map((rp) => ({
-        score: rp.score,
-        title: rp.series.title,
-        slug: rp.series.slug,
-      })),
-      ...characterRatingPillars.map((crp) => ({
-        score: crp.score,
-        title: crp.character.name,
-        slug: crp.character.slug,
-      })),
-    ]
+    // Highest & lowest rating: compute weighted average per media entry, then find min/max
+    type MediaEntry = { score: number; title: string; slug: string | null; mediaType: "series" | "character"; imageUrl: string | null }
+    const mediaEntries: MediaEntry[] = []
+
+    // Group series ratings by seriesId and compute weighted average
+    const seriesMap = new Map<string, { title: string; slug: string | null; imageUrl: string | null; weightedSum: number; totalWeight: number }>()
+    for (const rp of ratingPillars) {
+      const entry = seriesMap.get(rp.series.id) ?? { title: rp.series.title, slug: rp.series.slug, imageUrl: rp.series.imageUrl, weightedSum: 0, totalWeight: 0 }
+      entry.weightedSum += rp.score * rp.pillar.weight
+      entry.totalWeight += rp.pillar.weight
+      seriesMap.set(rp.series.id, entry)
+    }
+    for (const [, entry] of seriesMap) {
+      if (entry.totalWeight > 0) {
+        mediaEntries.push({ score: entry.weightedSum / entry.totalWeight, title: entry.title, slug: entry.slug, mediaType: "series", imageUrl: entry.imageUrl })
+      }
+    }
+
+    // Group character ratings by characterId and compute weighted average
+    const characterMap = new Map<string, { title: string; slug: string | null; imageUrl: string | null; weightedSum: number; totalWeight: number }>()
+    for (const crp of characterRatingPillars) {
+      const entry = characterMap.get(crp.character.id) ?? { title: crp.character.name, slug: crp.character.slug, imageUrl: crp.character.posterUrl, weightedSum: 0, totalWeight: 0 }
+      entry.weightedSum += crp.score * crp.pillar.weight
+      entry.totalWeight += crp.pillar.weight
+      characterMap.set(crp.character.id, entry)
+    }
+    for (const [, entry] of characterMap) {
+      if (entry.totalWeight > 0) {
+        mediaEntries.push({ score: entry.weightedSum / entry.totalWeight, title: entry.title, slug: entry.slug, mediaType: "character", imageUrl: entry.imageUrl })
+      }
+    }
 
     let highestRating: UserProfileStats["highestRating"] = null
     let lowestRating: UserProfileStats["lowestRating"] = null
-    if (allRatingsForMinMax.length > 0) {
-      const highest = allRatingsForMinMax.reduce((max, r) => (r.score > max.score ? r : max))
-      const lowest = allRatingsForMinMax.reduce((min, r) => (r.score < min.score ? r : min))
-      highestRating = {
-        score: Math.round(highest.score * 100) / 100,
-        title: highest.title,
-        slug: highest.slug,
-      }
-      lowestRating = {
-        score: Math.round(lowest.score * 100) / 100,
-        title: lowest.title,
-        slug: lowest.slug,
-      }
+    if (mediaEntries.length > 0) {
+      const highest = mediaEntries.reduce((max, r) => (r.score > max.score ? r : max))
+      const lowest = mediaEntries.reduce((min, r) => (r.score < min.score ? r : min))
+      highestRating = { ...highest, score: Math.round(highest.score * 100) / 100 }
+      lowestRating = { ...lowest, score: Math.round(lowest.score * 100) / 100 }
     }
 
     // Pillar breakdown (series pillars only — characters use same pillar types)
@@ -277,84 +287,70 @@ export async function getUserStats(userId: string): Promise<UserProfileStats | n
       throw new Error("User ID is required")
     }
 
-    const [rpCount, crpCount, rpAvg, crpAvg, rpHighRaw, crpHighRaw, rpLowRaw, crpLowRaw] =
-      await withRetry(() => Promise.all([
-        prisma.ratingPillar.count({ where: { userId } }),
-        prisma.characterRatingPillar.count({ where: { userId } }),
-        prisma.ratingPillar.aggregate({ where: { userId }, _avg: { score: true } }),
-        prisma.characterRatingPillar.aggregate({ where: { userId }, _avg: { score: true } }),
-        prisma.ratingPillar.findFirst({
-          where: { userId },
-          orderBy: { score: "desc" },
-          include: { series: { select: { title: true, slug: true } } },
-        }),
-        prisma.characterRatingPillar.findFirst({
-          where: { userId },
-          orderBy: { score: "desc" },
-          include: { character: { select: { name: true, slug: true } } },
-        }),
-        prisma.ratingPillar.findFirst({
-          where: { userId },
-          orderBy: { score: "asc" },
-          include: { series: { select: { title: true, slug: true } } },
-        }),
-        prisma.characterRatingPillar.findFirst({
-          where: { userId },
-          orderBy: { score: "asc" },
-          include: { character: { select: { name: true, slug: true } } },
-        }),
-      ]))
-    type RpWithSeries = { score: number; series: { title: string; slug: string | null } } | null
-    type CrpWithChar  = { score: number; character: { name: string; slug: string | null } } | null
-    const rpHigh  = rpHighRaw  as unknown as RpWithSeries
-    const crpHigh = crpHighRaw as unknown as CrpWithChar
-    const rpLow   = rpLowRaw   as unknown as RpWithSeries
-    const crpLow  = crpLowRaw  as unknown as CrpWithChar
+    const [rpRaw, crpRaw] = await withRetry(() => Promise.all([
+      prisma.ratingPillar.findMany({
+        where: { userId },
+        include: {
+          pillar: { select: { weight: true } },
+          series: { select: { id: true, title: true, slug: true, imageUrl: true } },
+        },
+      }),
+      prisma.characterRatingPillar.findMany({
+        where: { userId },
+        include: {
+          pillar: { select: { weight: true } },
+          character: { select: { id: true, name: true, slug: true, posterUrl: true } },
+        },
+      }),
+    ]))
+    type StatsRp  = { score: number; pillar: { weight: number }; series: { id: string; title: string; slug: string | null; imageUrl: string | null } }
+    type StatsCrp = { score: number; pillar: { weight: number }; character: { id: string; name: string; slug: string | null; posterUrl: string | null } }
+    const rp  = rpRaw  as unknown as StatsRp[]
+    const crp = crpRaw as unknown as StatsCrp[]
 
-    const totalRatings = rpCount + crpCount
+    const totalRatings = rp.length + crp.length
 
-    // Combined average
-    const avgScore =
-      totalRatings > 0
-        ? Math.round(
-            ((rpCount * (rpAvg._avg.score ?? 0) + crpCount * (crpAvg._avg.score ?? 0)) /
-              totalRatings) *
-              100
-          ) / 100
-        : 0
+    const allScores = [...rp.map(r => r.score), ...crp.map(r => r.score)]
+    const avgScore = allScores.length > 0
+      ? Math.round((allScores.reduce((s, v) => s + v, 0) / allScores.length) * 100) / 100
+      : 0
 
-    // Highest across both tables
-    const highCandidates = [
-      rpHigh ? { score: rpHigh.score, title: rpHigh.series.title, slug: rpHigh.series.slug } : null,
-      crpHigh ? { score: crpHigh.score, title: crpHigh.character.name, slug: crpHigh.character.slug } : null,
-    ].filter(Boolean) as { score: number; title: string; slug: string | null }[]
+    // Compute weighted average per media entry then find min/max
+    type MediaEntry = { score: number; title: string; slug: string | null; mediaType: "series" | "character"; imageUrl: string | null }
+    const mediaEntries: MediaEntry[] = []
 
-    const highestRating =
-      highCandidates.length > 0
-        ? highCandidates.reduce((max, r) => (r.score > max.score ? r : max))
-        : null
-
-    // Lowest across both tables
-    const lowCandidates = [
-      rpLow ? { score: rpLow.score, title: rpLow.series.title, slug: rpLow.series.slug } : null,
-      crpLow ? { score: crpLow.score, title: crpLow.character.name, slug: crpLow.character.slug } : null,
-    ].filter(Boolean) as { score: number; title: string; slug: string | null }[]
-
-    const lowestRating =
-      lowCandidates.length > 0
-        ? lowCandidates.reduce((min, r) => (r.score < min.score ? r : min))
-        : null
-
-    return {
-      totalRatings,
-      avgScore,
-      highestRating: highestRating
-        ? { ...highestRating, score: Math.round(highestRating.score * 100) / 100 }
-        : null,
-      lowestRating: lowestRating
-        ? { ...lowestRating, score: Math.round(lowestRating.score * 100) / 100 }
-        : null,
+    const seriesMap = new Map<string, { title: string; slug: string | null; imageUrl: string | null; weightedSum: number; totalWeight: number }>()
+    for (const r of rp) {
+      const entry = seriesMap.get(r.series.id) ?? { title: r.series.title, slug: r.series.slug, imageUrl: r.series.imageUrl, weightedSum: 0, totalWeight: 0 }
+      entry.weightedSum += r.score * r.pillar.weight
+      entry.totalWeight += r.pillar.weight
+      seriesMap.set(r.series.id, entry)
     }
+    for (const [, entry] of seriesMap) {
+      if (entry.totalWeight > 0) mediaEntries.push({ score: entry.weightedSum / entry.totalWeight, title: entry.title, slug: entry.slug, mediaType: "series", imageUrl: entry.imageUrl })
+    }
+
+    const characterMap = new Map<string, { title: string; slug: string | null; imageUrl: string | null; weightedSum: number; totalWeight: number }>()
+    for (const r of crp) {
+      const entry = characterMap.get(r.character.id) ?? { title: r.character.name, slug: r.character.slug, imageUrl: r.character.posterUrl, weightedSum: 0, totalWeight: 0 }
+      entry.weightedSum += r.score * r.pillar.weight
+      entry.totalWeight += r.pillar.weight
+      characterMap.set(r.character.id, entry)
+    }
+    for (const [, entry] of characterMap) {
+      if (entry.totalWeight > 0) mediaEntries.push({ score: entry.weightedSum / entry.totalWeight, title: entry.title, slug: entry.slug, mediaType: "character", imageUrl: entry.imageUrl })
+    }
+
+    let highestRating: UserProfileStats["highestRating"] = null
+    let lowestRating: UserProfileStats["lowestRating"] = null
+    if (mediaEntries.length > 0) {
+      const highest = mediaEntries.reduce((max, r) => (r.score > max.score ? r : max))
+      const lowest  = mediaEntries.reduce((min, r) => (r.score < min.score ? r : min))
+      highestRating = { ...highest, score: Math.round(highest.score * 100) / 100 }
+      lowestRating  = { ...lowest,  score: Math.round(lowest.score  * 100) / 100 }
+    }
+
+    return { totalRatings, avgScore, highestRating, lowestRating }
   } catch (error) {
     console.error("Error fetching user stats:", error)
     return null

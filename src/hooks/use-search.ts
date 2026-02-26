@@ -5,26 +5,27 @@ import {
   globalSearch,
   quickSearchSeries,
   quickSearchUsers,
+  quickSearchCharacters,
+  quickSearchSeasons,
+  quickSearchEpisodes,
 } from "@/lib/actions/search";
 import type {
   SearchQueryInput,
   SearchResponse,
   SeriesSearchResult,
+  CharacterSearchResult,
   UserSearchResult,
+  SeasonSearchResult,
+  EpisodeSearchResult,
 } from "@/lib/validations/search";
 
 // ============================================
 // SEARCH HOOKS
 // ============================================
 
-/**
- * Hook for global search across series and users
- * @param query - Search query string
- * @param options - Optional search options (limit, types)
- */
 export function useGlobalSearch(
   query: string,
-  options?: { limit?: number; types?: ("series" | "user")[] }
+  options?: { limit?: number; types?: ("series" | "character" | "user" | "season" | "episode")[] }
 ) {
   return useQuery<SearchResponse>({
     queryKey: ["globalSearch", query, options?.limit, options?.types],
@@ -35,15 +36,11 @@ export function useGlobalSearch(
         ...(options?.types !== undefined && { types: options.types }),
       } as SearchQueryInput),
     enabled: query.trim().length > 0,
-    staleTime: 1000 * 60, // 1 minute
-    gcTime: 1000 * 60 * 5, // 5 minutes (formerly cacheTime)
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
   });
 }
 
-/**
- * Hook for quick series search (autocomplete)
- * @param query - Search query string
- */
 export function useQuickSearchSeries(query: string) {
   return useQuery<SeriesSearchResult[]>({
     queryKey: ["quickSearchSeries", query],
@@ -54,14 +51,40 @@ export function useQuickSearchSeries(query: string) {
   });
 }
 
-/**
- * Hook for quick user search (autocomplete)
- * @param query - Search query string
- */
+export function useQuickSearchCharacters(query: string) {
+  return useQuery<CharacterSearchResult[]>({
+    queryKey: ["quickSearchCharacters", query],
+    queryFn: () => quickSearchCharacters(query),
+    enabled: query.trim().length > 0,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 export function useQuickSearchUsers(query: string) {
   return useQuery<UserSearchResult[]>({
     queryKey: ["quickSearchUsers", query],
     queryFn: () => quickSearchUsers(query),
+    enabled: query.trim().length > 0,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+export function useQuickSearchSeasons(query: string) {
+  return useQuery<SeasonSearchResult[]>({
+    queryKey: ["quickSearchSeasons", query],
+    queryFn: () => quickSearchSeasons(query),
+    enabled: query.trim().length > 0,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+export function useQuickSearchEpisodes(query: string) {
+  return useQuery<EpisodeSearchResult[]>({
+    queryKey: ["quickSearchEpisodes", query],
+    queryFn: () => quickSearchEpisodes(query),
     enabled: query.trim().length > 0,
     staleTime: 1000 * 60,
     gcTime: 1000 * 60 * 5,

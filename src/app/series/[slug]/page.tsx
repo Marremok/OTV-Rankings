@@ -4,6 +4,7 @@ import { useGetSeriesBySlug } from "@/hooks/use-series";
 import { useParams, notFound } from "next/navigation";
 import {
   HeroSection,
+  SeasonsSection,
   DescriptionSection,
   RadarChartSection,
   RateYourselfSection,
@@ -70,6 +71,12 @@ export default function SeriesPage() {
 
       {/* User rating interface */}
       <RateYourselfSection seriesId={series.id} />
+
+      {/* Section divider */}
+      <SectionDivider />
+
+      {/* Seasons & episodes */}
+      <SeasonsSection seriesId={series.id} />
 
       {/* Footer spacing */}
       <div className="h-24" />

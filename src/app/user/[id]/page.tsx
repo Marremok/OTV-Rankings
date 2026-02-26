@@ -7,8 +7,6 @@ import {
   Star,
   BarChart3,
   TrendingUp,
-  TrendingDown,
-  Trophy,
   Loader2,
   User,
 } from "lucide-react";
@@ -19,6 +17,7 @@ import {
 
 import {
   StatCard,
+  MediaRatingStatCard,
   CurrentlyWatchingSection,
   FavoriteSection,
   MediaListPreviewSection,
@@ -71,8 +70,6 @@ export default function PublicUserProfilePage({
   const stats = profileData?.stats ?? null;
 
   const avgDisplay = stats && stats.avgScore > 0 ? stats.avgScore.toFixed(2) : "—";
-  const highDisplay = stats?.highestRating ? stats.highestRating.score.toFixed(2) : "—";
-  const lowDisplay = stats?.lowestRating ? stats.lowestRating.score.toFixed(2) : "—";
 
   return (
     <div className="min-h-screen bg-zinc-950 relative selection:bg-primary/30">
@@ -144,7 +141,48 @@ export default function PublicUserProfilePage({
               <BarChart3 className="w-5 h-5 text-primary" />
               Stats
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            {/* Mobile: single horizontal card */}
+            <div className="sm:hidden flex items-center p-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40">
+              <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500">Ratings</span>
+                {isDataLoading ? (
+                  <div className="h-5 w-8 bg-zinc-800/60 rounded animate-pulse" />
+                ) : (
+                  <span className="text-base font-bold text-foreground">{stats?.totalRatings ?? 0}</span>
+                )}
+              </div>
+              <div className="w-px h-8 bg-zinc-700/60 shrink-0" />
+              <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500">Avg Score</span>
+                {isDataLoading ? (
+                  <div className="h-5 w-10 bg-zinc-800/60 rounded animate-pulse" />
+                ) : (
+                  <span className="text-base font-bold text-emerald-400">{avgDisplay}</span>
+                )}
+              </div>
+              <div className="w-px h-8 bg-zinc-700/60 shrink-0" />
+              <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500">Highest</span>
+                {isDataLoading ? (
+                  <div className="h-5 w-10 bg-zinc-800/60 rounded animate-pulse" />
+                ) : (
+                  <span className="text-base font-bold text-amber-400">{stats?.highestRating?.score.toFixed(1) ?? "—"}</span>
+                )}
+              </div>
+              <div className="w-px h-8 bg-zinc-700/60 shrink-0" />
+              <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500">Lowest</span>
+                {isDataLoading ? (
+                  <div className="h-5 w-10 bg-zinc-800/60 rounded animate-pulse" />
+                ) : (
+                  <span className="text-base font-bold text-zinc-400">{stats?.lowestRating?.score.toFixed(1) ?? "—"}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop: 4 individual cards */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 icon={Star}
                 label="Total Ratings"
@@ -162,24 +200,8 @@ export default function PublicUserProfilePage({
                 delay={100}
                 isLoading={isDataLoading}
               />
-              <StatCard
-                icon={Trophy}
-                label="Highest Rating"
-                value={highDisplay}
-                subtext={stats?.highestRating?.title ?? "No ratings yet"}
-                color="text-amber-400"
-                delay={200}
-                isLoading={isDataLoading}
-              />
-              <StatCard
-                icon={TrendingDown}
-                label="Lowest Rating"
-                value={lowDisplay}
-                subtext={stats?.lowestRating?.title ?? "No ratings yet"}
-                color="text-zinc-400"
-                delay={300}
-                isLoading={isDataLoading}
-              />
+              <MediaRatingStatCard variant="highest" rating={stats?.highestRating ?? null} isLoading={isDataLoading} />
+              <MediaRatingStatCard variant="lowest" rating={stats?.lowestRating ?? null} isLoading={isDataLoading} />
             </div>
           </div>
         </section>

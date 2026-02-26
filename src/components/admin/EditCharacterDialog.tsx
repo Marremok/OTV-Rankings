@@ -31,6 +31,7 @@ export interface CharacterData {
   actorName: string | null
   description: string | null
   posterUrl: string | null
+  heroUrl: string | null
   ranking: number
   seriesId: string
   series?: {
@@ -61,6 +62,7 @@ export function EditCharacterDialog({
   const [actorName, setActorName] = useState("")
   const [description, setDescription] = useState("")
   const [posterUrl, setPosterUrl] = useState("")
+  const [heroUrl, setHeroUrl] = useState("")
   const [seriesId, setSeriesId] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -72,6 +74,7 @@ export function EditCharacterDialog({
       setActorName(character.actorName || "")
       setDescription(character.description || "")
       setPosterUrl(character.posterUrl || "")
+      setHeroUrl(character.heroUrl || "")
       setSeriesId(character.seriesId || "")
       setErrors({})
     }
@@ -117,6 +120,7 @@ export function EditCharacterDialog({
         actorName: actorName.trim() || null,
         description: description.trim() || null,
         posterUrl: posterUrl.trim() || null,
+        heroUrl: heroUrl.trim() || null,
         seriesId,
       })
 
@@ -217,24 +221,40 @@ export function EditCharacterDialog({
             </div>
           </div>
 
-          {/* Poster URL */}
-          <div className="space-y-2">
-            <Label htmlFor="edit-posterUrl" className="text-sm font-medium">
-              Poster Image URL
-            </Label>
-            <Input
-              id="edit-posterUrl"
-              value={posterUrl}
-              onChange={(e) => setPosterUrl(e.target.value)}
-              placeholder="https://example.com/character-image.jpg"
-              className={errors.posterUrl ? "border-destructive" : ""}
-            />
-            <p className="text-xs text-muted-foreground">
-              Character portrait image (recommended 2:3 aspect ratio)
-            </p>
-            {errors.posterUrl && (
-              <p className="text-sm text-destructive">{errors.posterUrl}</p>
-            )}
+          {/* Poster URL + Hero URL */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-posterUrl" className="text-sm font-medium">
+                Poster Image URL
+              </Label>
+              <Input
+                id="edit-posterUrl"
+                value={posterUrl}
+                onChange={(e) => setPosterUrl(e.target.value)}
+                placeholder="https://example.com/character-image.jpg"
+                className={errors.posterUrl ? "border-destructive" : ""}
+              />
+              <p className="text-xs text-muted-foreground">
+                Portrait image (2:3 ratio)
+              </p>
+              {errors.posterUrl && (
+                <p className="text-sm text-destructive">{errors.posterUrl}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-heroUrl" className="text-sm font-medium">
+                Hero Image URL
+              </Label>
+              <Input
+                id="edit-heroUrl"
+                value={heroUrl}
+                onChange={(e) => setHeroUrl(e.target.value)}
+                placeholder="https://example.com/hero-image.jpg"
+              />
+              <p className="text-xs text-muted-foreground">
+                Wide/landscape image for rankings background
+              </p>
+            </div>
           </div>
 
           {/* Description */}

@@ -8,4 +8,7 @@ export { SearchResultGroup } from "./SearchResultGroup";
 
 // Result item components
 export { SeriesSearchItem } from "./SeriesSearchItem";
+export { CharacterSearchItem } from "./CharacterSearchItem";
 export { UserSearchItem } from "./UserSearchItem";
+export { SeasonSearchItem } from "./SeasonSearchItem";
+export { EpisodeSearchItem } from "./EpisodeSearchItem";

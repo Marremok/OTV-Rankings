@@ -9,8 +9,6 @@ import {
   Star,
   BarChart3,
   TrendingUp,
-  TrendingDown,
-  Trophy,
   Settings,
   Camera,
   Loader2,
@@ -25,12 +23,14 @@ import {
 
 import {
   StatCard,
+  MediaRatingStatCard,
   ImageUploadDialog,
   CurrentlyWatchingSection,
   FavoriteSection,
   MediaListPreviewSection,
   getUserInitials,
 } from "@/components/profile";
+import { SettingsModal } from "@/components/settings/SettingsModal";
 
 // ============================================
 // MAIN PROFILE PAGE COMPONENT
@@ -43,6 +43,7 @@ export default function ProfilePage() {
 
   const [showProfileUpload, setShowProfileUpload] = useState(false);
   const [showHeroUpload, setShowHeroUpload] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const { data: profileData, isLoading: isProfileLoading } = useUserProfileData(user?.id);
   const { data: userImages } = useUserImages(user?.id);
@@ -95,6 +96,9 @@ export default function ProfilePage() {
       </div>
 
       <div className="relative z-10">
+        {/* Settings Modal */}
+        <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
+
         {/* Hero Banner */}
         <HeroBanner heroImage={heroImage} onEditClick={() => setShowHeroUpload(true)} />
 
@@ -105,6 +109,7 @@ export default function ProfilePage() {
           initials={initials}
           joinDate={joinDate}
           onEditAvatarClick={() => setShowProfileUpload(true)}
+          onSettingsClick={() => setShowSettings(true)}
         />
 
         {/* Stats Section */}
@@ -209,9 +214,10 @@ interface ProfileHeaderProps {
   initials: string;
   joinDate: string;
   onEditAvatarClick: () => void;
+  onSettingsClick: () => void;
 }
 
-function ProfileHeader({ user, displayImage, initials, joinDate, onEditAvatarClick }: ProfileHeaderProps) {
+function ProfileHeader({ user, displayImage, initials, joinDate, onEditAvatarClick, onSettingsClick }: ProfileHeaderProps) {
   return (
     <section className="relative -mt-16 md:-mt-20 px-6 pb-8 border-b border-zinc-800/50">
       <div className="max-w-5xl mx-auto">
@@ -251,7 +257,7 @@ function ProfileHeader({ user, displayImage, initials, joinDate, onEditAvatarCli
 
           {/* Actions */}
           <div className="flex gap-3 pb-2">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={onSettingsClick}>
               <Settings className="w-4 h-4" />
               Settings
             </Button>
@@ -266,16 +272,14 @@ interface StatsSectionProps {
   stats: {
     totalRatings: number
     avgScore: number
-    highestRating: { score: number; title: string; slug: string | null } | null
-    lowestRating: { score: number; title: string; slug: string | null } | null
+    highestRating: { score: number; title: string; slug: string | null; mediaType: "series" | "character"; imageUrl: string | null } | null
+    lowestRating: { score: number; title: string; slug: string | null; mediaType: "series" | "character"; imageUrl: string | null } | null
   } | null
   isLoading: boolean
 }
 
 function StatsSection({ stats, isLoading }: StatsSectionProps) {
   const avgDisplay = stats && stats.avgScore > 0 ? stats.avgScore.toFixed(2) : "—"
-  const highDisplay = stats?.highestRating ? stats.highestRating.score.toFixed(2) : "—"
-  const lowDisplay = stats?.lowestRating ? stats.lowestRating.score.toFixed(2) : "—"
 
   return (
     <section className="py-10 px-6">
@@ -284,7 +288,48 @@ function StatsSection({ stats, isLoading }: StatsSectionProps) {
           <BarChart3 className="w-5 h-5 text-primary" />
           Your Stats
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* Mobile: single horizontal card */}
+        <div className="sm:hidden flex items-center p-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40">
+          <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Ratings</span>
+            {isLoading ? (
+              <div className="h-5 w-8 bg-zinc-800/60 rounded animate-pulse" />
+            ) : (
+              <span className="text-base font-bold text-foreground">{stats?.totalRatings ?? 0}</span>
+            )}
+          </div>
+          <div className="w-px h-8 bg-zinc-700/60 shrink-0" />
+          <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Avg Score</span>
+            {isLoading ? (
+              <div className="h-5 w-10 bg-zinc-800/60 rounded animate-pulse" />
+            ) : (
+              <span className="text-base font-bold text-emerald-400">{avgDisplay}</span>
+            )}
+          </div>
+          <div className="w-px h-8 bg-zinc-700/60 shrink-0" />
+          <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Highest</span>
+            {isLoading ? (
+              <div className="h-5 w-10 bg-zinc-800/60 rounded animate-pulse" />
+            ) : (
+              <span className="text-base font-bold text-amber-400">{stats?.highestRating?.score.toFixed(1) ?? "—"}</span>
+            )}
+          </div>
+          <div className="w-px h-8 bg-zinc-700/60 shrink-0" />
+          <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Lowest</span>
+            {isLoading ? (
+              <div className="h-5 w-10 bg-zinc-800/60 rounded animate-pulse" />
+            ) : (
+              <span className="text-base font-bold text-zinc-400">{stats?.lowestRating?.score.toFixed(1) ?? "—"}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop: 4 individual cards */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             icon={Star}
             label="Total Ratings"
@@ -302,24 +347,8 @@ function StatsSection({ stats, isLoading }: StatsSectionProps) {
             delay={100}
             isLoading={isLoading}
           />
-          <StatCard
-            icon={Trophy}
-            label="Highest Rating"
-            value={highDisplay}
-            subtext={stats?.highestRating?.title ?? "No ratings yet"}
-            color="text-amber-400"
-            delay={200}
-            isLoading={isLoading}
-          />
-          <StatCard
-            icon={TrendingDown}
-            label="Lowest Rating"
-            value={lowDisplay}
-            subtext={stats?.lowestRating?.title ?? "No ratings yet"}
-            color="text-zinc-400"
-            delay={300}
-            isLoading={isLoading}
-          />
+          <MediaRatingStatCard variant="highest" rating={stats?.highestRating ?? null} isLoading={isLoading} />
+          <MediaRatingStatCard variant="lowest" rating={stats?.lowestRating ?? null} isLoading={isLoading} />
         </div>
       </div>
     </section>

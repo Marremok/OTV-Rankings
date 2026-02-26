@@ -14,6 +14,7 @@ export interface CreateCharacterInput {
   actorName?: string | null
   description?: string | null
   posterUrl?: string | null
+  heroUrl?: string | null
   seriesId: string
 }
 
@@ -65,6 +66,7 @@ export async function createCharacter(input: CreateCharacterInput) {
         actorName: input.actorName || null,
         description: input.description || null,
         posterUrl: input.posterUrl || null,
+        heroUrl: input.heroUrl || null,
         seriesId: input.seriesId,
         ranking: 0,
         updatedAt: new Date(),
@@ -189,6 +191,7 @@ export interface EditCharacterInput {
   actorName?: string | null
   description?: string | null
   posterUrl?: string | null
+  heroUrl?: string | null
   seriesId: string
 }
 
@@ -243,6 +246,7 @@ export async function editCharacter(input: EditCharacterInput) {
         actorName: input.actorName || null,
         description: input.description || null,
         posterUrl: input.posterUrl || null,
+        heroUrl: input.heroUrl || null,
         seriesId: input.seriesId,
         updatedAt: new Date(),
       },

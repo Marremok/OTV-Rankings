@@ -70,6 +70,7 @@ model Series {
   ranking       Int                @default(0)
   pillarScores  Json?
   characters    Character[]
+  episodes      Episode[]
   ratingPillars RatingPillar[]
   seriesSeasons Season[]
   userStatuses  UserSeriesStatus[]
@@ -192,6 +193,7 @@ model Character {
   id                     String                  @id
   name                   String
   posterUrl              String?
+  heroUrl                String?
   ranking                Float                   @default(0)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime
@@ -229,7 +231,12 @@ model CharacterRatingPillar {
 model Season {
   id           String    @id
   seasonNumber Int
+  name         String?
+  slug         String?   @unique
+  description  String?
   posterUrl    String?
+  heroImageUrl String?
+  score        Float     @default(0)
   ranking      Float     @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime
@@ -244,13 +251,20 @@ model Episode {
   id            String   @id
   episodeNumber Int
   title         String
+  slug          String?  @unique
+  description   String?
+  heroImageUrl  String?
+  score         Float    @default(0)
   ranking       Float    @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime
   seasonId      String
+  seriesId      String?
   season        Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  series        Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
 
   @@index([seasonId])
+  @@index([seriesId])
 }
 
 enum mediaType {

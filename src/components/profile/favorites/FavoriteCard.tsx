@@ -163,6 +163,8 @@ export function FavoriteCard({
 
   // Empty slot
   if (!item) {
+    if (!isOwner || !isEditMode) return null
+
     return (
       <div
         className={cn(

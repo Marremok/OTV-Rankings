@@ -1,5 +1,6 @@
 // Series page components
 export { HeroSection } from "./HeroSection";
+export { SeasonsSection } from "./SeasonsSection";
 export { DescriptionSection } from "./DescriptionSection";
 export { RadarChart } from "./RadarChart";
 export { RadarChartSection } from "./RadarChartSection";
@@ -22,3 +23,4 @@ export {
   calculateWeightedScore,
   capitalize,
 } from "./pillar-utils";
+
