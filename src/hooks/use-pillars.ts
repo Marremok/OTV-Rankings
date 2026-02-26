@@ -27,6 +27,7 @@ import {
 import { getSeriesPillarScoresBySlug, getCharacterPillarScoresBySlug } from "@/lib/actions/scoring"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { mediaType } from "@/generated/prisma/enums"
+import posthog from "posthog-js"
 
 // ============================================
 // PILLAR TEMPLATE HOOKS (Admin)
@@ -183,6 +184,12 @@ export function useCreateRatingPillar() {
       })
       // NOTE: We intentionally do NOT invalidate ["series"] queries here.
       // Community scores update via cron job, not per-rating.
+      posthog.capture("pillar_rated", {
+        media_type: "series",
+        series_id: variables.seriesId,
+        pillar_id: variables.pillarId,
+        score: variables.finalScore,
+      })
     },
     onError: (error) => console.error("Error while saving rating:", error),
   })
@@ -255,6 +262,12 @@ export function useCreateCharacterRatingPillar() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["userCharacterRatingPillars", variables.userId, variables.characterId],
+      })
+      posthog.capture("pillar_rated", {
+        media_type: "character",
+        character_id: variables.characterId,
+        pillar_id: variables.pillarId,
+        score: variables.finalScore,
       })
     },
     onError: (error) => console.error("Error while saving character rating:", error),

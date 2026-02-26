@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import posthog from "posthog-js"
 import {
   getUserFavorites,
   setUserFavorite,
@@ -57,11 +58,16 @@ export function useSetUserFavorite() {
       rank: number
       mediaId: string
     }) => setUserFavorite(userId, mediaType, rank, mediaId),
-    onSuccess: (_, { userId, mediaType }) => {
+    onSuccess: (_, { userId, mediaType, mediaId, rank }) => {
       queryClient.invalidateQueries({ queryKey: favoriteKeys.all(userId) })
       if (mediaType === "SERIES") {
         queryClient.invalidateQueries({ queryKey: ["seriesStatus", userId] })
       }
+      posthog.capture("favorite_added", {
+        media_type: mediaType.toLowerCase(),
+        media_id: mediaId,
+        rank,
+      })
     },
   })
 }
@@ -82,11 +88,15 @@ export function useRemoveUserFavorite() {
       mediaType: "SERIES" | "CHARACTER"
       mediaId: string
     }) => removeUserFavorite(userId, mediaType, mediaId),
-    onSuccess: (_, { userId, mediaType }) => {
+    onSuccess: (_, { userId, mediaType, mediaId }) => {
       queryClient.invalidateQueries({ queryKey: favoriteKeys.all(userId) })
       if (mediaType === "SERIES") {
         queryClient.invalidateQueries({ queryKey: ["seriesStatus", userId] })
       }
+      posthog.capture("favorite_removed", {
+        media_type: mediaType.toLowerCase(),
+        media_id: mediaId,
+      })
     },
   })
 }
@@ -134,6 +144,11 @@ export function useReorderUserFavorites() {
         queryClient.setQueryData(favoriteKeys.all(userId), context.previous)
       }
     },
+    onSuccess: (_, { mediaType }) => {
+      posthog.capture("favorites_reordered", {
+        media_type: mediaType.toLowerCase(),
+      })
+    },
     onSettled: (_, __, { userId }) => {
       queryClient.invalidateQueries({ queryKey: favoriteKeys.all(userId) })
     },
@@ -154,9 +169,14 @@ export function useToggleFavoriteFromSeriesPage() {
       userId: string
       seriesId: string
     }) => toggleFavoriteFromSeriesPage(userId, seriesId),
-    onSuccess: (_, { userId, seriesId }) => {
+    onSuccess: (result, { userId, seriesId }) => {
       queryClient.invalidateQueries({ queryKey: favoriteKeys.all(userId) })
       queryClient.invalidateQueries({ queryKey: ["seriesStatus", userId, seriesId] })
+      posthog.capture("favorite_toggled", {
+        media_type: "series",
+        series_id: seriesId,
+        action: result?.action ?? "unknown",
+      })
     },
   })
 }

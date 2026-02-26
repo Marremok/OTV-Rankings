@@ -79,7 +79,7 @@ export default function CharactersRankingPage() {
               <Card
                 key={c.id}
                 className="group relative flex w-full flex-row overflow-hidden border-none bg-linear-to-br from-primary/7 via-primary/4
-                  to-background transition-all duration-700 hover:shadow-[0_0_80px_-20px_rgba(var(--primary-rgb),0.3)] h-44 sm:h-56 md:h-auto md:min-h-55"
+                  to-background transition-all duration-700 hover:shadow-[0_0_80px_-20px_rgba(var(--primary-rgb),0.3)]"
               >
                 {/* Neon edge — color-coded by score */}
                 <div className={cn(
@@ -88,7 +88,7 @@ export default function CharactersRankingPage() {
                 )} />
 
                 {/* LEFT: Poster */}
-                <Link href={c.slug ? `/characters/${c.slug}` : "#"} className="relative w-24 sm:w-36 md:w-44 shrink-0 overflow-hidden">
+                <Link href={c.slug ? `/characters/${c.slug}` : "#"} className="relative aspect-[2/3] w-28 sm:w-36 md:w-44 shrink-0 overflow-hidden">
                   {c.posterUrl ? (
                     <img
                       src={c.posterUrl}
