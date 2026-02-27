@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   ChevronRight,
   ChevronDown,
@@ -55,12 +56,14 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
   // Season inline-form fields
   const [sNum, setSNum] = useState("")
   const [sName, setSName] = useState("")
+  const [sDescription, setSDescription] = useState("")
   const [sPosterUrl, setSPosterUrl] = useState("")
   const [sHeroImageUrl, setSHeroImageUrl] = useState("")
 
   // Episode inline-form fields
   const [eNum, setENum] = useState("")
   const [eTitle, setETitle] = useState("")
+  const [eDescription, setEDescription] = useState("")
   const [eHeroImageUrl, setEHeroImageUrl] = useState("")
 
   // ----------------------------------------
@@ -71,6 +74,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setEditingSeasonId(null)
     setSNum(String(seasons.length + 1))
     setSName("")
+    setSDescription("")
     setSPosterUrl("")
     setSHeroImageUrl("")
     setAddingSeasonForm(true)
@@ -80,6 +84,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setAddingSeasonForm(false)
     setSNum("")
     setSName("")
+    setSDescription("")
     setSPosterUrl("")
     setSHeroImageUrl("")
   }
@@ -91,6 +96,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
       seriesId,
       seasonNumber: n,
       name: sName.trim() || null,
+      description: sDescription.trim() || null,
       posterUrl: sPosterUrl || null,
       heroImageUrl: sHeroImageUrl || null,
     })
@@ -102,6 +108,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setEditingSeasonId(season.id)
     setSNum(String(season.seasonNumber))
     setSName(season.name ?? "")
+    setSDescription(season.description ?? "")
     setSPosterUrl(season.posterUrl ?? "")
     setSHeroImageUrl(season.heroImageUrl ?? "")
   }
@@ -110,6 +117,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setEditingSeasonId(null)
     setSNum("")
     setSName("")
+    setSDescription("")
     setSPosterUrl("")
     setSHeroImageUrl("")
   }
@@ -122,6 +130,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
       seriesId,
       seasonNumber: n,
       name: sName.trim() || null,
+      description: sDescription.trim() || null,
       posterUrl: sPosterUrl || null,
       heroImageUrl: sHeroImageUrl || null,
     })
@@ -142,6 +151,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setAddEpisodeForSeasonId(seasonId)
     setENum(String(episodeCount + 1))
     setETitle("")
+    setEDescription("")
     setEHeroImageUrl("")
   }
 
@@ -149,6 +159,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setAddEpisodeForSeasonId(null)
     setENum("")
     setETitle("")
+    setEDescription("")
     setEHeroImageUrl("")
   }
 
@@ -160,6 +171,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
       seriesId,
       episodeNumber: n,
       title: eTitle.trim(),
+      description: eDescription.trim() || null,
       heroImageUrl: eHeroImageUrl || null,
     })
     cancelAddEpisode()
@@ -170,6 +182,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setEditingEpisodeId(episode.id)
     setENum(String(episode.episodeNumber))
     setETitle(episode.title)
+    setEDescription((episode as any).description ?? "")
     setEHeroImageUrl((episode as any).heroImageUrl ?? "")
   }
 
@@ -177,6 +190,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
     setEditingEpisodeId(null)
     setENum("")
     setETitle("")
+    setEDescription("")
     setEHeroImageUrl("")
   }
 
@@ -189,6 +203,7 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
       seriesId,
       episodeNumber: n,
       title: eTitle.trim(),
+      description: eDescription.trim() || null,
       heroImageUrl: eHeroImageUrl || null,
     })
     cancelEditEpisode()
@@ -242,6 +257,13 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
                     autoFocus
                   />
                 </div>
+                <Textarea
+                  className="text-sm resize-none"
+                  value={sDescription}
+                  onChange={(e) => setSDescription(e.target.value)}
+                  placeholder="Season description (optional)"
+                  rows={2}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <AdminImageUpload
                     label="Poster"
@@ -357,6 +379,13 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
                             onChange={(url) => setEHeroImageUrl(url ?? "")}
                             aspectRatio="wide"
                           />
+                          <Textarea
+                            className="text-xs resize-none"
+                            value={eDescription}
+                            onChange={(e) => setEDescription(e.target.value)}
+                            placeholder="Episode description (optional)"
+                            rows={2}
+                          />
                           <div className="flex items-center gap-2 justify-end">
                             <Button
                               type="button"
@@ -443,6 +472,13 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
                       onChange={(url) => setEHeroImageUrl(url ?? "")}
                       aspectRatio="wide"
                     />
+                    <Textarea
+                      className="text-xs resize-none"
+                      value={eDescription}
+                      onChange={(e) => setEDescription(e.target.value)}
+                      placeholder="Episode description (optional)"
+                      rows={2}
+                    />
                     <div className="flex items-center gap-2 justify-end">
                       <Button
                         type="button"
@@ -506,6 +542,13 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
               autoFocus
             />
           </div>
+          <Textarea
+            className="text-sm resize-none"
+            value={sDescription}
+            onChange={(e) => setSDescription(e.target.value)}
+            placeholder="Season description (optional)"
+            rows={2}
+          />
           <div className="grid grid-cols-2 gap-4">
             <AdminImageUpload
               label="Poster"
