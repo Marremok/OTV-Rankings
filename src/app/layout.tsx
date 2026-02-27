@@ -5,6 +5,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import TanStackProvider from "@/components/providers/TanStackProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
+import { extractRouterConfig } from "uploadthing/server";
+import { ourFileRouter } from "./api/uploadthing/core";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +34,7 @@ export default function RootLayout({
       <html lang="en" >
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}>
+          <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
           <Navbar />
           {children}
           <Footer />

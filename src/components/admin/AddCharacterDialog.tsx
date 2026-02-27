@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import { useCreateCharacter } from "@/hooks/use-characters"
 import { useGetAllSeries } from "@/hooks/use-series"
+import { AdminImageUpload } from "@/components/admin/AdminImageUpload"
 
 export interface Character {
   id: string
@@ -88,14 +89,6 @@ export function AddCharacterDialog({
 
     if (slug && !/^[a-z0-9-]+$/.test(slug.trim())) {
       newErrors.slug = "Slug can only contain lowercase letters, numbers, and hyphens"
-    }
-
-    if (posterUrl && posterUrl.trim()) {
-      try {
-        new URL(posterUrl)
-      } catch {
-        newErrors.posterUrl = "Please enter a valid URL"
-      }
     }
 
     setErrors(newErrors)
@@ -227,40 +220,24 @@ export function AddCharacterDialog({
             </div>
           </div>
 
-          {/* Poster URL + Hero URL */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="posterUrl" className="text-sm font-medium">
-                Poster Image URL
-              </Label>
-              <Input
-                id="posterUrl"
-                value={posterUrl}
-                onChange={(e) => setPosterUrl(e.target.value)}
-                placeholder="https://example.com/character-image.jpg"
-                className={errors.posterUrl ? "border-destructive" : ""}
-              />
-              <p className="text-xs text-muted-foreground">
-                Portrait image (2:3 ratio)
-              </p>
-              {errors.posterUrl && (
-                <p className="text-sm text-destructive">{errors.posterUrl}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="heroUrl" className="text-sm font-medium">
-                Hero Image URL
-              </Label>
-              <Input
-                id="heroUrl"
-                value={heroUrl}
-                onChange={(e) => setHeroUrl(e.target.value)}
-                placeholder="https://example.com/hero-image.jpg"
-              />
-              <p className="text-xs text-muted-foreground">
-                Wide/landscape image for rankings background
-              </p>
-            </div>
+          {/* Images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <AdminImageUpload
+              label="Poster Image"
+              endpoint="contentPoster"
+              value={posterUrl || null}
+              onChange={(url) => setPosterUrl(url ?? "")}
+              hint="Portrait image (2:3 ratio)"
+              aspectRatio="portrait"
+            />
+            <AdminImageUpload
+              label="Hero Image"
+              endpoint="contentHero"
+              value={heroUrl || null}
+              onChange={(url) => setHeroUrl(url ?? "")}
+              hint="Wide/landscape image for rankings background"
+              aspectRatio="wide"
+            />
           </div>
 
           {/* Description */}

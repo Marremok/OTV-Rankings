@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { X, Plus, Loader2 } from "lucide-react"
 import { useEditSeries } from "@/hooks/use-series"
+import { SeriesSeasonEditor } from "@/components/admin/SeriesSeasonEditor"
+import { AdminImageUpload } from "@/components/admin/AdminImageUpload"
 
 export interface SeriesData {
   id: string
@@ -92,22 +94,6 @@ export function EditSeriesDialog({
       const seasonNum = parseInt(seasons)
       if (isNaN(seasonNum) || seasonNum < 1) {
         newErrors.seasons = "Seasons must be at least 1"
-      }
-    }
-
-    if (imageUrl && imageUrl.trim()) {
-      try {
-        new URL(imageUrl)
-      } catch {
-        newErrors.imageUrl = "Please enter a valid URL"
-      }
-    }
-
-    if (wideImageUrl && wideImageUrl.trim()) {
-      try {
-        new URL(wideImageUrl)
-      } catch {
-        newErrors.wideImageUrl = "Please enter a valid URL"
       }
     }
 
@@ -231,41 +217,24 @@ export function EditSeriesDialog({
             </div>
           </div>
 
-          {/* Image URL (Poster) */}
-          <div className="space-y-2">
-            <Label htmlFor="edit-imageUrl" className="text-sm font-medium">
-              Poster Image URL
-            </Label>
-            <Input
-              id="edit-imageUrl"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/poster.jpg"
-              className={errors.imageUrl ? "border-destructive" : ""}
+          {/* Images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <AdminImageUpload
+              label="Poster Image"
+              endpoint="contentPoster"
+              value={imageUrl || null}
+              onChange={(url) => setImageUrl(url ?? "")}
+              hint="Portrait image (2:3 ratio)"
+              aspectRatio="portrait"
             />
-            {errors.imageUrl && (
-              <p className="text-sm text-destructive">{errors.imageUrl}</p>
-            )}
-          </div>
-
-          {/* Wide Image URL (Hero) */}
-          <div className="space-y-2">
-            <Label htmlFor="edit-wideImageUrl" className="text-sm font-medium">
-              Wide Image URL (Hero)
-            </Label>
-            <Input
-              id="edit-wideImageUrl"
-              value={wideImageUrl}
-              onChange={(e) => setWideImageUrl(e.target.value)}
-              placeholder="https://example.com/wide-image.jpg"
-              className={errors.wideImageUrl ? "border-destructive" : ""}
+            <AdminImageUpload
+              label="Wide / Hero Image"
+              endpoint="contentHero"
+              value={wideImageUrl || null}
+              onChange={(url) => setWideImageUrl(url ?? "")}
+              hint="Wide banner shown at the top of the series page (16:9)"
+              aspectRatio="wide"
             />
-            <p className="text-xs text-muted-foreground">
-              Wide image displayed at the top of the series page (e.g., 16:9 format)
-            </p>
-            {errors.wideImageUrl && (
-              <p className="text-sm text-destructive">{errors.wideImageUrl}</p>
-            )}
           </div>
 
           {/* Description */}
@@ -330,6 +299,14 @@ export function EditSeriesDialog({
               </div>
             )}
           </div>
+
+          {/* Seasons section */}
+          {series && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Seasons</label>
+              <SeriesSeasonEditor seriesId={series.id} />
+            </div>
+          )}
 
           {errors.submit && (
             <p className="text-sm text-destructive">{errors.submit}</p>

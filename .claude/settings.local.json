@@ -12,7 +12,8 @@
       "Bash(npm install @neondatabase/serverless @prisma/adapter-neon)",
       "WebFetch(domain:www.prisma.io)",
       "Bash(npx next build)",
-      "Bash(ls -la \"c:\\\\Users\\\\maxny\\\\Desktop\\\\otv-rankings\\\\src\\\\app\\\\profile\\\\profile-utils\"\" 2>/dev/null || echo \"Directory check \")"
+      "Bash(ls -la \"c:\\\\Users\\\\maxny\\\\Desktop\\\\otv-rankings\\\\src\\\\app\\\\profile\\\\profile-utils\"\" 2>/dev/null || echo \"Directory check \")",
+      "WebFetch(domain:docs.uploadthing.com)"
     ]
   }
 }

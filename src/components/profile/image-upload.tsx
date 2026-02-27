@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { X, Upload, ImageIcon, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useState, useCallback } from "react";
+import { X, ImageIcon, Loader2, CheckCircle2, AlertCircle, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { UploadDropzone } from "@/lib/uploadthing";
+import type { OurFileRouter } from "@/app/api/uploadthing/core";
 
 // ============================================
-// IMAGE UPLOAD TYPES
+// TYPES
 // ============================================
 
 export interface UploadProgress {
   status: "idle" | "uploading" | "processing" | "complete" | "error";
-  progress: number; // 0-100
+  progress: number;
   message?: string;
 }
 
@@ -24,61 +26,8 @@ export interface ImageUploadDialogProps {
   isLoading?: boolean;
 }
 
-// File size limits
-const MAX_FILE_SIZE_PROFILE = 5 * 1024 * 1024; // 5MB for profile picture
-const MAX_FILE_SIZE_HERO = 15 * 1024 * 1024; // 15MB for hero banner (larger images)
-
 // ============================================
-// COMPONENT: Upload Progress Indicator
-// ============================================
-
-interface UploadProgressIndicatorProps {
-  uploadProgress: UploadProgress;
-}
-
-function UploadProgressIndicator({ uploadProgress }: UploadProgressIndicatorProps) {
-  const { status, progress, message } = uploadProgress;
-
-  if (status === "idle") return null;
-
-  return (
-    <div className="mt-4 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
-      <div className="flex items-center gap-3">
-        {status === "uploading" || status === "processing" ? (
-          <Loader2 className="w-5 h-5 text-primary animate-spin" />
-        ) : status === "complete" ? (
-          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-        ) : (
-          <AlertCircle className="w-5 h-5 text-red-400" />
-        )}
-        <div className="flex-1">
-          <p className="text-sm text-zinc-300">
-            {message ||
-              (status === "uploading"
-                ? "Uploading..."
-                : status === "processing"
-                  ? "Processing..."
-                  : status === "complete"
-                    ? "Upload complete!"
-                    : "Upload failed")}
-          </p>
-          {(status === "uploading" || status === "processing") && (
-            <div className="mt-2 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
-        </div>
-        <span className="text-sm text-zinc-500">{progress}%</span>
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// COMPONENT: Image Upload Dialog
+// COMPONENT
 // ============================================
 
 export function ImageUploadDialog({
@@ -89,138 +38,48 @@ export function ImageUploadDialog({
   aspectRatio = "square",
   isLoading = false,
 }: ImageUploadDialogProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
-    status: "idle",
-    progress: 0,
-  });
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Determine max file size based on aspect ratio
-  const maxFileSize = aspectRatio === "wide" ? MAX_FILE_SIZE_HERO : MAX_FILE_SIZE_PROFILE;
-  const maxFileSizeMB = maxFileSize / (1024 * 1024);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith("image/")) {
-        setUploadProgress({
-          status: "error",
-          progress: 0,
-          message: "Please select an image file",
-        });
-        return;
-      }
-
-      if (file.size > maxFileSize) {
-        setUploadProgress({
-          status: "error",
-          progress: 0,
-          message: `File size must be less than ${maxFileSizeMB}MB`,
-        });
-        return;
-      }
-
-      setSelectedFile(file);
-      setUploadProgress({ status: "idle", progress: 0 });
-
-      const reader = new FileReader();
-      reader.onloadstart = () => {
-        setUploadProgress({ status: "processing", progress: 10, message: "Reading file..." });
-      };
-      reader.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 50) + 10;
-          setUploadProgress({ status: "processing", progress, message: "Processing image..." });
-        }
-      };
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-        setUploadProgress({ status: "idle", progress: 0 });
-      };
-      reader.onerror = () => {
-        setUploadProgress({
-          status: "error",
-          progress: 0,
-          message: "Failed to read file",
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  }, [maxFileSize, maxFileSizeMB]);
-
-  const handleUrlSubmit = useCallback(() => {
-    if (urlInput.trim()) {
-      setUploadProgress({ status: "processing", progress: 30, message: "Loading image..." });
-
-      const img = new Image();
-      img.onload = () => {
-        setPreviewUrl(urlInput.trim());
-        setSelectedFile(null);
-        setUploadProgress({ status: "idle", progress: 0 });
-      };
-      img.onerror = () => {
-        setUploadProgress({
-          status: "error",
-          progress: 0,
-          message: "Invalid image URL or failed to load",
-        });
-      };
-      img.src = urlInput.trim();
-    }
-  }, [urlInput]);
-
-  const handleConfirm = useCallback(async () => {
-    if (!previewUrl) return;
-
-    if (selectedFile) {
-      setUploadProgress({ status: "uploading", progress: 0, message: "Preparing upload..." });
-
-      const steps = [20, 40, 60, 80, 100];
-      for (const step of steps) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        setUploadProgress({
-          status: step < 100 ? "uploading" : "processing",
-          progress: step,
-          message: step < 100 ? "Uploading..." : "Finalizing...",
-        });
-      }
-    }
-
-    onUpload(previewUrl);
-    handleClose();
-  }, [previewUrl, selectedFile, onUpload]);
+  const endpoint: keyof OurFileRouter = aspectRatio === "wide" ? "profileBanner" : "profileImage";
 
   const handleClose = useCallback(() => {
-    setPreviewUrl(null);
     setUrlInput("");
-    setSelectedFile(null);
-    setUploadProgress({ status: "idle", progress: 0 });
+    setPreviewUrl(null);
+    setUrlError(null);
+    setUploadState("idle");
+    setUploadError(null);
     onClose();
   }, [onClose]);
 
-  const clearPreview = useCallback(() => {
-    setPreviewUrl(null);
-    setSelectedFile(null);
-    setUploadProgress({ status: "idle", progress: 0 });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }, []);
+  const handleUrlLoad = useCallback(() => {
+    const url = urlInput.trim();
+    if (!url) return;
+    setUrlError(null);
+
+    const img = new Image();
+    img.onload = () => setPreviewUrl(url);
+    img.onerror = () => setUrlError("Could not load image from that URL");
+    img.src = url;
+  }, [urlInput]);
+
+  const handleUrlSave = useCallback(() => {
+    if (!previewUrl) return;
+    onUpload(previewUrl);
+    handleClose();
+  }, [previewUrl, onUpload, handleClose]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={handleClose}
-      />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleClose} />
 
-      {/* Dialog - wider for hero banners */}
+      {/* Dialog */}
       <div
         className={cn(
           "relative z-10 w-full mx-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl",
@@ -230,125 +89,121 @@ export function ImageUploadDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-foreground">{title}</h2>
-          <button
-            onClick={handleClose}
-            className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-          >
+          <button onClick={handleClose} className="p-2 rounded-lg hover:bg-zinc-800 transition-colors">
             <X className="w-5 h-5 text-zinc-400" />
           </button>
         </div>
 
-        {/* Preview Area */}
-        <div
-          className={cn(
-            "relative mb-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-800/50 overflow-hidden",
-            aspectRatio === "wide"
-              ? "w-full min-h-50 aspect-video"
-              : "aspect-square max-w-50 mx-auto"
-          )}
-        >
-          {previewUrl ? (
-            <>
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-              <button
-                onClick={clearPreview}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 transition-colors"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
-            </>
+        {/* UploadThing dropzone */}
+        <div className="mb-5">
+          {uploadState === "done" ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-emerald-700/40 bg-emerald-900/10">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+              <p className="text-sm font-medium text-emerald-400">Upload complete!</p>
+            </div>
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
-              <ImageIcon className="w-12 h-12 mb-2" />
-              <p className="text-sm">No image selected</p>
-              <p className="text-xs text-zinc-600 mt-1">
-                {aspectRatio === "wide" ? "Recommended: 1920x1080px (16:9)" : "Recommended: 400x400px"}
-              </p>
+            <UploadDropzone
+              endpoint={endpoint}
+              onUploadBegin={() => {
+                setUploadState("uploading");
+                setUploadError(null);
+              }}
+              onClientUploadComplete={(res) => {
+                const url = res[0]?.url;
+                if (url) {
+                  setUploadState("done");
+                  onUpload(url);
+                  // Close after brief success flash
+                  setTimeout(handleClose, 800);
+                }
+              }}
+              onUploadError={(error) => {
+                setUploadState("error");
+                setUploadError(error.message || "Upload failed");
+              }}
+              appearance={{
+                container: cn(
+                  "border-2 border-dashed border-zinc-700 rounded-xl bg-zinc-800/40 transition-colors hover:border-zinc-500",
+                  aspectRatio === "wide" ? "min-h-[10rem]" : "min-h-[8rem]"
+                ),
+                label: "text-zinc-400 text-sm",
+                allowedContent: "text-zinc-600 text-xs",
+                button: "bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium",
+                uploadIcon: "text-zinc-600",
+              }}
+            />
+          )}
+
+          {uploadState === "error" && uploadError && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-red-400">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {uploadError}
             </div>
           )}
         </div>
 
-        {/* Upload Progress */}
-        <UploadProgressIndicator uploadProgress={uploadProgress} />
+        {/* Divider */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1 h-px bg-zinc-800" />
+          <span className="text-xs text-zinc-500 flex items-center gap-1.5">
+            <Link className="w-3 h-3" /> or paste a URL
+          </span>
+          <div className="flex-1 h-px bg-zinc-800" />
+        </div>
 
-        {/* Upload Options */}
-        <div className="space-y-4 mt-4">
-          {/* File Upload */}
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadProgress.status === "uploading" || uploadProgress.status === "processing"}
+        {/* URL input */}
+        {previewUrl ? (
+          <div className="space-y-3">
+            <div
+              className={cn(
+                "relative rounded-xl overflow-hidden border border-zinc-700 bg-zinc-800",
+                aspectRatio === "wide" ? "aspect-video w-full" : "aspect-square max-w-[12rem] mx-auto"
+              )}
             >
-              <Upload className="w-4 h-4" />
-              Upload from Device
-            </Button>
-            <p className="text-xs text-zinc-600 mt-1 text-center">
-              Max file size: {maxFileSizeMB}MB • JPG, PNG, GIF, WebP
+              <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+              <button
+                onClick={() => setPreviewUrl(null)}
+                className="absolute top-2 right-2 p-1 rounded-full bg-black/60 hover:bg-black/80"
+              >
+                <X className="w-3.5 h-3.5 text-white" />
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setPreviewUrl(null)}>
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={handleUrlSave} disabled={isLoading}>
+                {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : "Use This Image"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="https://example.com/image.jpg"
+                value={urlInput}
+                onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && handleUrlLoad()}
+                className="flex-1 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <Button variant="outline" size="sm" onClick={handleUrlLoad} disabled={!urlInput.trim()}>
+                Load
+              </Button>
+            </div>
+            {urlError && (
+              <p className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {urlError}
+              </p>
+            )}
+            <p className="text-xs text-zinc-600">
+              {aspectRatio === "wide"
+                ? "Recommended: 1920×1080px (16:9)"
+                : "Recommended: 400×400px (square)"}
             </p>
           </div>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-zinc-800" />
-            <span className="text-xs text-zinc-500">or</span>
-            <div className="flex-1 h-px bg-zinc-800" />
-          </div>
-
-          {/* URL Input */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Paste image URL..."
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
-              className="flex-1 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              disabled={uploadProgress.status === "uploading" || uploadProgress.status === "processing"}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleUrlSubmit}
-              disabled={!urlInput.trim() || uploadProgress.status === "uploading" || uploadProgress.status === "processing"}
-            >
-              Load
-            </Button>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 mt-6">
-          <Button variant="outline" className="flex-1" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button
-            className="flex-1"
-            onClick={handleConfirm}
-            disabled={!previewUrl || isLoading || uploadProgress.status === "uploading"}
-          >
-            {isLoading || uploadProgress.status === "uploading" ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {uploadProgress.status === "uploading" ? "Uploading..." : "Saving..."}
-              </>
-            ) : (
-              "Save Image"
-            )}
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   );

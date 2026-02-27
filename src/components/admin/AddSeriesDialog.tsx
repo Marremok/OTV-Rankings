@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { X, Plus, Loader2 } from "lucide-react"
 import { useCreateSeries } from "@/hooks/use-series"
+import { SeriesSeasonEditor } from "@/components/admin/SeriesSeasonEditor"
+import { AdminImageUpload } from "@/components/admin/AdminImageUpload"
 
 export interface Series {
   id: string
@@ -42,6 +44,7 @@ export function AddSeriesDialog({
   onAddSeries,
 }: AddSeriesDialogProps) {
   const createSeries = useCreateSeries()
+  const [createdSeriesId, setCreatedSeriesId] = useState<string | null>(null)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [releaseYear, setReleaseYear] = useState("")
@@ -86,23 +89,6 @@ export function AddSeriesDialog({
       }
     }
 
-    if (imageUrl && imageUrl.trim()) {
-      try {
-        new URL(imageUrl)
-      } catch {
-        newErrors.imageUrl = "Please enter a valid URL"
-      }
-    }
-
-    // Validera wideImageUrl om den finns
-    if (wideImageUrl && wideImageUrl.trim()) {
-      try {
-        new URL(wideImageUrl)
-      } catch {
-        newErrors.wideImageUrl = "Please enter a valid URL"
-      }
-    }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -137,8 +123,8 @@ export function AddSeriesDialog({
       })
 
       onAddSeries(newSeries as Series)
-      resetForm()
-      onOpenChange(false)
+      setCreatedSeriesId((newSeries as Series).id)
+      // Stay open so user can add seasons
     } catch (error: any) {
       console.error("Failed to create series:", error)
       setErrors({ submit: error.message || "Failed to create series. Please try again." })
@@ -156,10 +142,11 @@ export function AddSeriesDialog({
     setGenreInput("")
     setSeasons("")
     setErrors({})
+    setCreatedSeriesId(null)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o) }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New TV Series</DialogTitle>
@@ -237,41 +224,24 @@ export function AddSeriesDialog({
             </div>
           </div>
 
-          {/* Image URL (Poster) */}
-          <div className="space-y-2">
-            <Label htmlFor="imageUrl" className="text-sm font-medium">
-              Poster Image URL
-            </Label>
-            <Input
-              id="imageUrl"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/poster.jpg"
-              className={errors.imageUrl ? "border-destructive" : ""}
+          {/* Images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <AdminImageUpload
+              label="Poster Image"
+              endpoint="contentPoster"
+              value={imageUrl || null}
+              onChange={(url) => setImageUrl(url ?? "")}
+              hint="Portrait image (2:3 ratio)"
+              aspectRatio="portrait"
             />
-            {errors.imageUrl && (
-              <p className="text-sm text-destructive">{errors.imageUrl}</p>
-            )}
-          </div>
-
-          {/* Wide Image URL (Hero) - Ny bild för bred visning på seriesidan */}
-          <div className="space-y-2">
-            <Label htmlFor="wideImageUrl" className="text-sm font-medium">
-              Wide Image URL (Hero)
-            </Label>
-            <Input
-              id="wideImageUrl"
-              value={wideImageUrl}
-              onChange={(e) => setWideImageUrl(e.target.value)}
-              placeholder="https://example.com/wide-image.jpg"
-              className={errors.wideImageUrl ? "border-destructive" : ""}
+            <AdminImageUpload
+              label="Wide / Hero Image"
+              endpoint="contentHero"
+              value={wideImageUrl || null}
+              onChange={(url) => setWideImageUrl(url ?? "")}
+              hint="Wide banner shown at the top of the series page (16:9)"
+              aspectRatio="wide"
             />
-            <p className="text-xs text-muted-foreground">
-              Bred bild som visas högst upp på seriesidan (t.ex. 16:9 format)
-            </p>
-            {errors.wideImageUrl && (
-              <p className="text-sm text-destructive">{errors.wideImageUrl}</p>
-            )}
           </div>
 
           {/* Description */}
@@ -337,29 +307,48 @@ export function AddSeriesDialog({
             )}
           </div>
 
+          {/* Seasons section — visible after series is saved */}
+          {createdSeriesId && (
+            <div className="space-y-2">
+              <p className="text-xs text-emerald-400 font-medium">Series created! You can now add seasons below.</p>
+              <SeriesSeasonEditor seriesId={createdSeriesId} />
+            </div>
+          )}
+
           {errors.submit && (
             <p className="text-sm text-destructive">{errors.submit}</p>
           )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={createSeries.isPending}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createSeries.isPending}>
-              {createSeries.isPending ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Add Series"
-              )}
-            </Button>
+            {createdSeriesId ? (
+              <Button
+                type="button"
+                onClick={() => { resetForm(); onOpenChange(false) }}
+              >
+                Done
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={createSeries.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createSeries.isPending}>
+                  {createSeries.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Series"
+                  )}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

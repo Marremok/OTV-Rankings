@@ -5,8 +5,6 @@ import LoadingUI from "@/components/admin/loadingUI";
 import SeriesManagement from "@/components/admin/SeriesManagement";
 import PillarManagement from "@/components/admin/PillarManagement";
 import CharacterManagement from "@/components/admin/CharacterManagement";
-import SeasonManagement from "@/components/admin/SeasonManagement";
-import EpisodeManagement from "@/components/admin/EpisodeManagement";
 import Navbar from "@/components/Navbar"
 
 import { useSession } from "@/lib/auth-client";
@@ -58,8 +56,6 @@ function AdminDashboardClient() {
         </div>
         <SeriesManagement />
         <CharacterManagement />
-        <SeasonManagement />
-        <EpisodeManagement />
         <PillarManagement />
       </div>
     </div>

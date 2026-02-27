@@ -61,10 +61,13 @@ export default function Hero() {
           <div className="h-px w-8 md:w-16 bg-primary/30" />
         </div>
 
-        <p className="text-lg md:text-2xl text-muted-foreground leading-relaxed max-w-2xl mx-auto mb-10 font-medium">
-          Dive into structured ratings for TV series and characters. 
-          Every score is backed by our communities deep analysis.
-        </p>
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <span className="px-4 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-sm font-semibold text-primary tracking-wide">Rate</span>
+          <span className="text-zinc-600 text-xs">·</span>
+          <span className="px-4 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-sm font-semibold text-primary tracking-wide">Rank</span>
+          <span className="text-zinc-600 text-xs">·</span>
+          <span className="px-4 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-sm font-semibold text-primary tracking-wide">Discover</span>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link href="/rankings" className="w-full sm:w-auto">
