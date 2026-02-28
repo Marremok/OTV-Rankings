@@ -46,7 +46,7 @@ export default function SeasonPage() {
         <div className="relative w-full aspect-[21/9] overflow-hidden">
           <img
             src={season.heroImageUrl}
-            alt={`Season ${season.seasonNumber}`}
+            alt={`Season ${season.order}`}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
@@ -67,7 +67,7 @@ export default function SeasonPage() {
           )}
           <span>/</span>
           <span className="text-zinc-100">
-            Season {season.seasonNumber}{season.name ? `: ${season.name}` : ""}
+            Season {season.order}{season.title ? `: ${season.title}` : ""}
           </span>
         </nav>
 
@@ -76,7 +76,7 @@ export default function SeasonPage() {
           {season.posterUrl ? (
             <img
               src={season.posterUrl}
-              alt={`Season ${season.seasonNumber}`}
+              alt={`Season ${season.order}`}
               className="h-48 w-32 rounded-lg object-cover shrink-0 shadow-lg"
             />
           ) : (
@@ -87,9 +87,9 @@ export default function SeasonPage() {
 
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl md:text-3xl font-bold mb-1">
-              Season {season.seasonNumber}
-              {season.name && (
-                <span className="text-zinc-400 font-normal">: {season.name}</span>
+              Season {season.order}
+              {season.title && (
+                <span className="text-zinc-400 font-normal">: {season.title}</span>
               )}
             </h1>
             <Link
@@ -148,7 +148,7 @@ export default function SeasonPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{episode.title}</p>
                     <p className="text-xs text-zinc-400">
-                      S{season.seasonNumber}E{episode.episodeNumber}
+                      S{season.order}E{episode.episodeNumber}
                     </p>
                   </div>
 

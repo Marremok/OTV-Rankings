@@ -274,7 +274,7 @@ export default function RankingSection({ title, icon: Icon, slug, rankingType }:
               >
                 <div className="relative aspect-2/3 w-full overflow-hidden rounded-xl bg-muted shadow-sm transition-all duration-250 group-hover:shadow-lg group-hover:-translate-y-0.4">
                   {s.posterUrl ? (
-                    <img src={s.posterUrl} alt={`Season ${s.seasonNumber}`} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <img src={s.posterUrl} alt={`Season ${s.order}`} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-zinc-900">
                       <Layers className="size-10 text-zinc-700" />
@@ -294,7 +294,7 @@ export default function RankingSection({ title, icon: Icon, slug, rankingType }:
                 </div>
                 <div className="space-y-1 px-1">
                   <h3 className="text-me font-semibold leading-tight text-foreground line-clamp-2 group-hover:underline decoration-2 underline-offset-4 decoration-primary/50">
-                    Season {s.seasonNumber}{s.name ? `: ${s.name}` : ""}
+                    Season {s.order}{s.title ? `: ${s.title}` : ""}
                   </h3>
                   {(s as any).series?.title && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-tight bg-muted/80 text-muted-foreground dark:bg-secondary/40 dark:text-secondary-foreground border border-border/40 transition-all group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20">
@@ -352,7 +352,7 @@ export default function RankingSection({ title, icon: Icon, slug, rankingType }:
                   </h3>
                   {(e as any).season && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-tight bg-muted/80 text-muted-foreground dark:bg-secondary/40 dark:text-secondary-foreground border border-border/40 transition-all group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20">
-                      S{(e as any).season.seasonNumber}E{e.episodeNumber} · {(e as any).season.series?.title}
+                      S{(e as any).season.order}E{e.episodeNumber} · {(e as any).season.series?.title}
                     </span>
                   )}
                 </div>

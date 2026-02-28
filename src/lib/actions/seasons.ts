@@ -9,8 +9,8 @@ export type SeasonDetail = Season & { series: Series; episodes: Episode[] }
 
 export interface CreateSeasonInput {
   seriesId: string
-  seasonNumber: number
-  name?: string | null
+  order: number
+  title?: string | null
   slug?: string | null
   description?: string | null
   posterUrl?: string | null
@@ -20,8 +20,8 @@ export interface CreateSeasonInput {
 export interface EditSeasonInput {
   id: string
   seriesId: string
-  seasonNumber: number
-  name?: string | null
+  order: number
+  title?: string | null
   slug?: string | null
   description?: string | null
   posterUrl?: string | null
@@ -37,7 +37,7 @@ export async function createSeason(input: CreateSeasonInput) {
       throw new Error("Series is required")
     }
 
-    if (!input.seasonNumber || input.seasonNumber < 1) {
+    if (!input.order || input.order < 1) {
       throw new Error("Season number must be a positive integer")
     }
 
@@ -58,7 +58,7 @@ export async function createSeason(input: CreateSeasonInput) {
       try { new URL(input.heroImageUrl) } catch { throw new Error("Please enter a valid hero image URL") }
     }
 
-    const baseName = input.name?.trim() || `Season ${input.seasonNumber}`
+    const baseName = input.title?.trim() || `Season ${input.order}`
     const slug = input.slug?.trim() || baseName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -68,8 +68,8 @@ export async function createSeason(input: CreateSeasonInput) {
       data: {
         id: crypto.randomUUID(),
         seriesId: input.seriesId,
-        seasonNumber: input.seasonNumber,
-        name: input.name?.trim() || null,
+        order: input.order,
+        title: input.title?.trim() || null,
         slug,
         description: input.description?.trim() || null,
         posterUrl: input.posterUrl || null,
@@ -147,7 +147,7 @@ export async function getSeasonsBySeriesId(seriesId: string): Promise<SeasonWith
       include: {
         episodes: { orderBy: { episodeNumber: "asc" } },
       },
-      orderBy: { seasonNumber: "asc" },
+      orderBy: { order: "asc" },
       cacheStrategy: { swr: 120, ttl: 60 },
     }))
 
@@ -224,7 +224,7 @@ export async function editSeason(input: EditSeasonInput) {
   try {
     if (!input.id) throw new Error("Season ID is required")
     if (!input.seriesId) throw new Error("Series is required")
-    if (!input.seasonNumber || input.seasonNumber < 1) {
+    if (!input.order || input.order < 1) {
       throw new Error("Season number must be a positive integer")
     }
 
@@ -243,7 +243,7 @@ export async function editSeason(input: EditSeasonInput) {
 
     if (!series) throw new Error("Series not found")
 
-    const baseName = input.name?.trim() || `Season ${input.seasonNumber}`
+    const baseName = input.title?.trim() || `Season ${input.order}`
     const slug = input.slug?.trim() || baseName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -253,8 +253,8 @@ export async function editSeason(input: EditSeasonInput) {
       where: { id: input.id },
       data: {
         seriesId: input.seriesId,
-        seasonNumber: input.seasonNumber,
-        name: input.name?.trim() || null,
+        order: input.order,
+        title: input.title?.trim() || null,
         slug,
         description: input.description?.trim() || null,
         posterUrl: input.posterUrl || null,
@@ -310,7 +310,7 @@ export async function deleteSeason(id: string) {
       revalidatePath(`/series/${season.series.slug}`)
     }
 
-    return { success: true }
+    return { success: true, seriesId: season.seriesId }
   } catch (error: any) {
     console.error("Error deleting season:", error)
 

@@ -230,8 +230,8 @@ model CharacterRatingPillar {
 
 model Season {
   id           String    @id
-  seasonNumber Int
-  name         String?
+  order        Int       @map("seasonNumber")
+  title        String?   @map("name")
   slug         String?   @unique
   description  String?
   posterUrl    String?

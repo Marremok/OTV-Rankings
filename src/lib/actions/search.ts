@@ -82,7 +82,7 @@ async function searchUsers(query: string, limit: number): Promise<UserSearchResu
  */
 async function searchSeasons(query: string, limit: number): Promise<SeasonSearchResult[]> {
   const seasons = await prisma.season.findMany({
-    where: { name: { contains: query, mode: "insensitive" } },
+    where: { title: { contains: query, mode: "insensitive" } },
     include: { series: { select: { title: true } } },
     orderBy: { score: "desc" },
     take: limit,
@@ -91,9 +91,9 @@ async function searchSeasons(query: string, limit: number): Promise<SeasonSearch
   return seasons.map((s) => ({
     id: s.id,
     type: "season" as const,
-    name: s.name,
+    title: s.title,
     slug: s.slug,
-    seasonNumber: s.seasonNumber,
+    order: s.order,
     posterUrl: s.posterUrl,
     score: s.score,
     seriesTitle: (s as any).series?.title ?? null,
@@ -121,7 +121,7 @@ async function searchEpisodes(query: string, limit: number): Promise<EpisodeSear
     episodeNumber: e.episodeNumber,
     score: e.score,
     seriesTitle: (e as any).season?.series?.title ?? null,
-    seasonNumber: (e as any).season?.seasonNumber ?? null,
+    order: (e as any).season?.order ?? null,
   }));
 }
 

@@ -20,9 +20,9 @@ export function SeasonSearchItem({ season, onSelect }: SeasonSearchItemProps) {
     }
   };
 
-  const label = season.name
-    ? `Season ${season.seasonNumber}: ${season.name}`
-    : `Season ${season.seasonNumber}`;
+  const label = season.title
+    ? `Season ${season.order}: ${season.title}`
+    : `Season ${season.order}`;
 
   return (
     <CommandItem

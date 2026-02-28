@@ -65,11 +65,11 @@ export default function EpisodePage() {
           <span>/</span>
           {episode.season?.slug ? (
             <Link href={`/seasons/${episode.season.slug}`} className="hover:text-zinc-100 transition-colors">
-              Season {episode.season.seasonNumber}
-              {episode.season.name ? `: ${episode.season.name}` : ""}
+              Season {episode.season.order}
+              {episode.season.title ? `: ${episode.season.title}` : ""}
             </Link>
           ) : (
-            <span>Season {episode.season?.seasonNumber}</span>
+            <span>Season {episode.season?.order}</span>
           )}
           <span>/</span>
           <span className="text-zinc-100">{episode.title}</span>
@@ -77,7 +77,7 @@ export default function EpisodePage() {
 
         {/* Episode number badge */}
         <p className="text-sm text-primary font-medium mb-2">
-          S{episode.season?.seasonNumber}E{episode.episodeNumber}
+          S{episode.season?.order}E{episode.episodeNumber}
         </p>
 
         {/* Title */}
@@ -107,8 +107,8 @@ export default function EpisodePage() {
               href={`/seasons/${episode.season.slug}`}
               className="text-sm text-primary hover:underline flex items-center gap-1"
             >
-              ← Back to Season {episode.season.seasonNumber}
-              {episode.season.name ? `: ${episode.season.name}` : ""}
+              ← Back to Season {episode.season.order}
+              {episode.season.title ? `: ${episode.season.title}` : ""}
             </Link>
           ) : series?.slug ? (
             <Link

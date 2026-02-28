@@ -55,7 +55,7 @@ export default function EpisodesRankingPage() {
           <div className="space-y-3">
             {episodes.map((episode, index) => {
               const seasonLabel = episode.season
-                ? `S${String(episode.season.seasonNumber).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`
+                ? `S${String(episode.season.order).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`
                 : `E${String(episode.episodeNumber).padStart(2, "0")}`
               const seriesTitle = (episode as any).season?.series?.title ?? null
 

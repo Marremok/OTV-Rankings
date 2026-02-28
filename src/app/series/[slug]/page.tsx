@@ -60,12 +60,6 @@ export default function SeriesPage() {
       {/* Section divider */}
       <SectionDivider />
 
-      {/* Seasons & episodes */}
-      <SeasonsSection seriesId={series.id} />
-
-      {/* Section divider */}
-      <SectionDivider />
-
       {/* Rating breakdown with radar chart - uses real aggregated data */}
       <RadarChartSection
         pillarScores={pillarScores}
@@ -75,6 +69,13 @@ export default function SeriesPage() {
       {/* Section divider */}
       <SectionDivider />
 
+      {/* Seasons & episodes */}
+      <SeasonsSection seriesId={series.id} />
+
+      {/* Section divider */}
+      <SectionDivider />
+
+    
       {/* User rating interface */}
       <RateYourselfSection seriesId={series.id} />
 

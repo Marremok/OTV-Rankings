@@ -108,8 +108,9 @@ export function useDeleteSeason() {
 
   return useMutation({
     mutationFn: (id: string) => deleteSeason(id),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: seasonKeys.all })
+      queryClient.invalidateQueries({ queryKey: seasonKeys.bySeries(data.seriesId) })
     },
     onError: (error) => console.error("Error while deleting season:", error),
   })

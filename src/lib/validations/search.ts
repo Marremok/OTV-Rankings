@@ -57,9 +57,9 @@ export interface UserSearchResult {
 export interface SeasonSearchResult {
   id: string;
   type: "season";
-  name: string | null;
+  title: string | null;
   slug: string | null;
-  seasonNumber: number;
+  order: number;
   posterUrl: string | null;
   score: number;
   seriesTitle: string | null;
@@ -73,7 +73,7 @@ export interface EpisodeSearchResult {
   episodeNumber: number;
   score: number;
   seriesTitle: string | null;
-  seasonNumber: number | null;
+  order: number | null;
 }
 
 export type SearchResult = SeriesSearchResult | CharacterSearchResult | UserSearchResult | SeasonSearchResult | EpisodeSearchResult;

@@ -54,8 +54,8 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
   const [editingEpisodeId, setEditingEpisodeId] = useState<string | null>(null)
 
   // Season inline-form fields
-  const [sNum, setSNum] = useState("")
-  const [sName, setSName] = useState("")
+  const [sOrder, setSOrder] = useState("")
+  const [sTitle, setSTitle] = useState("") // season display name
   const [sDescription, setSDescription] = useState("")
   const [sPosterUrl, setSPosterUrl] = useState("")
   const [sHeroImageUrl, setSHeroImageUrl] = useState("")
@@ -72,8 +72,8 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
 
   function openAddSeason() {
     setEditingSeasonId(null)
-    setSNum(String(seasons.length + 1))
-    setSName("")
+    setSOrder(String(seasons.length + 1))
+    setSTitle("")
     setSDescription("")
     setSPosterUrl("")
     setSHeroImageUrl("")
@@ -82,20 +82,20 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
 
   function cancelAddSeason() {
     setAddingSeasonForm(false)
-    setSNum("")
-    setSName("")
+    setSOrder("")
+    setSTitle("")
     setSDescription("")
     setSPosterUrl("")
     setSHeroImageUrl("")
   }
 
   async function handleAddSeason() {
-    const n = parseInt(sNum)
+    const n = parseInt(sOrder)
     if (isNaN(n) || n < 1) return
     await createSeason.mutateAsync({
       seriesId,
-      seasonNumber: n,
-      name: sName.trim() || null,
+      order: n,
+      title: sTitle.trim() || null,
       description: sDescription.trim() || null,
       posterUrl: sPosterUrl || null,
       heroImageUrl: sHeroImageUrl || null,
@@ -106,8 +106,8 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
   function openEditSeason(season: SeasonWithEpisodes) {
     setAddingSeasonForm(false)
     setEditingSeasonId(season.id)
-    setSNum(String(season.seasonNumber))
-    setSName(season.name ?? "")
+    setSOrder(String(season.order))
+    setSTitle(season.title ?? "")
     setSDescription(season.description ?? "")
     setSPosterUrl(season.posterUrl ?? "")
     setSHeroImageUrl(season.heroImageUrl ?? "")
@@ -115,21 +115,21 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
 
   function cancelEditSeason() {
     setEditingSeasonId(null)
-    setSNum("")
-    setSName("")
+    setSOrder("")
+    setSTitle("")
     setSDescription("")
     setSPosterUrl("")
     setSHeroImageUrl("")
   }
 
   async function handleSaveSeason(season: SeasonWithEpisodes) {
-    const n = parseInt(sNum)
+    const n = parseInt(sOrder)
     if (isNaN(n) || n < 1) return
     await editSeason.mutateAsync({
       id: season.id,
       seriesId,
-      seasonNumber: n,
-      name: sName.trim() || null,
+      order: n,
+      title: sTitle.trim() || null,
       description: sDescription.trim() || null,
       posterUrl: sPosterUrl || null,
       heroImageUrl: sHeroImageUrl || null,
@@ -243,17 +243,17 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
                 <div className="flex items-center gap-2">
                   <Input
                     className="h-7 w-16 text-sm"
-                    value={sNum}
-                    onChange={(e) => setSNum(e.target.value)}
+                    value={sOrder}
+                    onChange={(e) => setSOrder(e.target.value)}
                     type="number"
                     min={1}
                     placeholder="#"
                   />
                   <Input
                     className="h-7 flex-1 text-sm"
-                    value={sName}
-                    onChange={(e) => setSName(e.target.value)}
-                    placeholder="Season name (optional)"
+                    value={sTitle}
+                    onChange={(e) => setSTitle(e.target.value)}
+                    placeholder="Season title (optional)"
                     autoFocus
                   />
                 </div>
@@ -317,8 +317,8 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
                     : <ChevronRight className="size-3.5 text-zinc-500 shrink-0" />
                   }
                   <span>
-                    Season {season.seasonNumber}
-                    {season.name ? <span className="text-zinc-400 font-normal"> — {season.name}</span> : null}
+                    Season {season.order}
+                    {season.title ? <span className="text-zinc-400 font-normal"> — {season.title}</span> : null}
                   </span>
                   <span className="text-xs text-zinc-600">({episodes?.length ?? 0} ep)</span>
                 </button>
@@ -525,17 +525,17 @@ export function SeriesSeasonEditor({ seriesId }: SeriesSeasonEditorProps) {
           <div className="flex items-center gap-2">
             <Input
               className="h-7 w-16 text-sm"
-              value={sNum}
-              onChange={(e) => setSNum(e.target.value)}
+              value={sOrder}
+              onChange={(e) => setSOrder(e.target.value)}
               type="number"
               min={1}
               placeholder="#"
             />
             <Input
               className="h-7 flex-1 text-sm"
-              value={sName}
-              onChange={(e) => setSName(e.target.value)}
-              placeholder="Season name (optional)"
+              value={sTitle}
+              onChange={(e) => setSTitle(e.target.value)}
+              placeholder="Season title (optional)"
               onKeyDown={(e) => {
                 if (e.key === "Escape") cancelAddSeason()
               }}

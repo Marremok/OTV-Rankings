@@ -54,9 +54,9 @@ export default function SeasonsRankingPage() {
         {!isLoading && !isError && seasons.length > 0 && (
           <div className="space-y-3">
             {seasons.map((season, index) => {
-              const label = season.name
-                ? `Season ${season.seasonNumber}: ${season.name}`
-                : `Season ${season.seasonNumber}`
+              const label = season.title
+                ? `Season ${season.order}: ${season.title}`
+                : `Season ${season.order}`
 
               return (
                 <Link

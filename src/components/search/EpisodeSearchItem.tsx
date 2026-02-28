@@ -21,8 +21,8 @@ export function EpisodeSearchItem({ episode, onSelect }: EpisodeSearchItemProps)
   };
 
   const badge =
-    episode.seasonNumber != null
-      ? `S${episode.seasonNumber}E${episode.episodeNumber}`
+    episode.order != null
+      ? `S${episode.order}E${episode.episodeNumber}`
       : `Ep. ${episode.episodeNumber}`;
 
   return (

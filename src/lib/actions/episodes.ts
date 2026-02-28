@@ -151,8 +151,8 @@ export async function getEpisodesBySeriesId(seriesId: string) {
 
     const episodes = await withRetry(() => prisma.episode.findMany({
       where: { seriesId },
-      include: { season: { select: { id: true, seasonNumber: true, name: true } } },
-      orderBy: [{ season: { seasonNumber: "asc" } }, { episodeNumber: "asc" }],
+      include: { season: { select: { id: true, order: true, title: true } } },
+      orderBy: [{ season: { order: "asc" } }, { episodeNumber: "asc" }],
       cacheStrategy: { swr: 120, ttl: 60 },
     }))
 
