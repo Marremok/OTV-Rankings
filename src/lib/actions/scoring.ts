@@ -729,18 +729,20 @@ export async function updateAllCharacterScoresAndRankings() {
 // ============================================
 
 /**
- * Master function: updates scores and rankings for ALL media types (series + characters).
+ * Master function: updates scores and rankings for ALL media types (series + characters + seasons + episodes).
  * This is the recommended function to call from cron jobs.
- * Runs series and character updates in parallel for efficiency.
+ * Runs all updates in parallel for efficiency.
  */
 export async function updateAllScoresAndRankings() {
-  console.log("[Scoring] Starting global score and ranking update (series + characters)...")
+  console.log("[Scoring] Starting global score and ranking update (series + characters + seasons + episodes)...")
   const startTime = Date.now()
 
   try {
-    const [seriesResult, characterResult] = await Promise.all([
+    const [seriesResult, characterResult, seasonResult, episodeResult] = await Promise.all([
       updateAllSeriesScoresAndRankings(),
       updateAllCharacterScoresAndRankings(),
+      updateAllSeasonScoresAndRankings(),
+      updateAllEpisodeScoresAndRankings(),
     ])
 
     const totalDuration = Date.now() - startTime
@@ -751,10 +753,480 @@ export async function updateAllScoresAndRankings() {
       totalDurationMs: totalDuration,
       series: seriesResult,
       characters: characterResult,
+      seasons: seasonResult,
+      episodes: episodeResult,
     }
   } catch (error) {
     console.error("[Scoring] Global update failed:", error)
     if (error instanceof Error) throw new Error(`Failed to update all scores and rankings: ${error.message}`)
+    throw error
+  }
+}
+
+// ============================================
+// SEASON SCORING (mirrors character scoring)
+// ============================================
+
+/**
+ * Gets aggregated pillar scores for a season by slug.
+ * Used by SeasonRatingSummary to display community averages.
+ */
+export async function getSeasonPillarScoresBySlug(slug: string) {
+  try {
+    const season = await withRetry(() => prisma.season.findUnique({
+      where: { slug },
+      select: { id: true, pillarScores: true, score: true },
+      cacheStrategy: { swr: 120, ttl: 60 },
+    }))
+
+    if (!season) {
+      throw new Error("Season not found")
+    }
+
+    return {
+      seasonId:     season.id,
+      pillarScores: (season.pillarScores as unknown as SeriesPillarScores) || {},
+      overallScore: season.score,
+    }
+  } catch (error) {
+    console.error(`Error getting pillar scores for season slug ${slug}:`, error)
+    throw new Error("Failed to get season pillar scores")
+  }
+}
+
+/**
+ * Updates both pillar scores and overall score for a single season in one pass.
+ * Mirrors updateCharacterScores exactly.
+ */
+export async function updateSeasonScores(seasonId: string) {
+  try {
+    const ratingPillars = await withRetry(() => prisma.seasonRatingPillar.findMany({
+      where: { seasonId },
+      include: {
+        pillar: { select: { id: true, type: true, weight: true } },
+      },
+    }))
+
+    const pillarGroups: Record<string, {
+      scores: number[]
+      pillarId: string
+      pillarType: string
+      pillarWeight: number
+    }> = {}
+
+    for (const rating of ratingPillars) {
+      const { type, id, weight } = rating.pillar
+      if (!pillarGroups[type]) {
+        pillarGroups[type] = { scores: [], pillarId: id, pillarType: type, pillarWeight: weight }
+      }
+      pillarGroups[type].scores.push(rating.score)
+    }
+
+    const pillarScores: SeriesPillarScores = {}
+    for (const [type, group] of Object.entries(pillarGroups)) {
+      const sum = group.scores.reduce((acc, s) => acc + s, 0)
+      pillarScores[type] = {
+        avgScore:     Math.round((sum / group.scores.length) * 100) / 100,
+        raterCount:   group.scores.length,
+        pillarId:     group.pillarId,
+        pillarType:   type,
+        pillarWeight: group.pillarWeight,
+      }
+    }
+
+    const overallScore = calculateOverallScore(pillarScores)
+
+    await withRetry(() => prisma.season.update({
+      where: { id: seasonId },
+      data: {
+        pillarScores: pillarScores as object,
+        score:        overallScore,
+        updatedAt:    new Date(),
+      },
+    }))
+
+    const season = await withRetry(() => prisma.season.findUnique({
+      where: { id: seasonId },
+      select: { slug: true },
+    }))
+    if (season?.slug) {
+      revalidatePath(`/seasons/${season.slug}`)
+    }
+
+    return { pillarScores: pillarScores as object, overallScore }
+  } catch (error) {
+    console.error(`Error updating scores for season ${seasonId}:`, error)
+    throw new Error("Failed to update season scores")
+  }
+}
+
+/**
+ * Updates scores for ALL seasons in the database.
+ * Batch-optimized to avoid N+1 queries. Call from cron job.
+ */
+export async function updateAllSeasonScores() {
+  console.log("[Scoring] Starting batch score update for all seasons...")
+  const startTime = Date.now()
+
+  try {
+    const allSeasons = await withRetry(() => prisma.season.findMany({
+      select: { id: true, slug: true },
+    }))
+
+    const allRatingPillars = await withRetry(() => prisma.seasonRatingPillar.findMany({
+      include: {
+        pillar: { select: { id: true, type: true, weight: true } },
+      },
+    }))
+
+    const ratingsBySeasonId: Record<string, typeof allRatingPillars> = {}
+    for (const r of allRatingPillars) {
+      if (!ratingsBySeasonId[r.seasonId]) ratingsBySeasonId[r.seasonId] = []
+      ratingsBySeasonId[r.seasonId].push(r)
+    }
+
+    const results: { seasonId: string; slug: string | null; score: number; pillarCount: number }[] = []
+
+    for (const season of allSeasons) {
+      const ratings = ratingsBySeasonId[season.id] || []
+
+      const pillarGroups: Record<string, {
+        scores: number[]
+        pillarId: string
+        pillarType: string
+        pillarWeight: number
+      }> = {}
+
+      for (const r of ratings) {
+        const { type, id, weight } = r.pillar
+        if (!pillarGroups[type]) {
+          pillarGroups[type] = { scores: [], pillarId: id, pillarType: type, pillarWeight: weight }
+        }
+        pillarGroups[type].scores.push(r.score)
+      }
+
+      const pillarScores: SeriesPillarScores = {}
+      for (const [type, group] of Object.entries(pillarGroups)) {
+        const sum = group.scores.reduce((acc, s) => acc + s, 0)
+        pillarScores[type] = {
+          avgScore:     Math.round((sum / group.scores.length) * 100) / 100,
+          raterCount:   group.scores.length,
+          pillarId:     group.pillarId,
+          pillarType:   type,
+          pillarWeight: group.pillarWeight,
+        }
+      }
+
+      const overallScore = calculateOverallScore(pillarScores)
+
+      await withRetry(() => prisma.season.update({
+        where: { id: season.id },
+        data: {
+          pillarScores: Object.keys(pillarScores).length > 0 ? (pillarScores as object) : Prisma.JsonNull,
+          score:        overallScore,
+          updatedAt:    new Date(),
+        },
+      }))
+
+      results.push({ seasonId: season.id, slug: season.slug, score: overallScore, pillarCount: Object.keys(pillarScores).length })
+    }
+
+    const duration = Date.now() - startTime
+    console.log(`[Scoring] Season batch update complete in ${duration}ms. Updated ${results.length} seasons.`)
+
+    revalidatePath("/rankings/seasons")
+
+    return { success: true, updatedCount: results.length, durationMs: duration, results }
+  } catch (error) {
+    console.error("[Scoring] Season batch update failed:", error)
+    throw new Error("Failed to update all season scores")
+  }
+}
+
+/**
+ * Updates rankings for all seasons based on their scores.
+ * Assigns ranking 1 to highest score. Mirrors updateAllCharacterRankings.
+ */
+export async function updateAllSeasonRankings() {
+  console.log("[Scoring] Updating season rankings...")
+  const startTime = Date.now()
+
+  try {
+    const allSeasons = await withRetry(() => prisma.season.findMany({
+      select: { id: true, score: true },
+      orderBy: { score: "desc" },
+    }))
+
+    await withRetry(() => prisma.$transaction(
+      allSeasons.map((s, i) =>
+        prisma.season.update({ where: { id: s.id }, data: { ranking: i + 1 } })
+      )
+    ))
+
+    const duration = Date.now() - startTime
+    console.log(`[Scoring] Season rankings updated in ${duration}ms. Ranked ${allSeasons.length} seasons.`)
+
+    revalidatePath("/rankings/seasons")
+
+    return { success: true, rankedCount: allSeasons.length, durationMs: duration }
+  } catch (error) {
+    console.error("[Scoring] Season ranking update failed:", error)
+    throw new Error("Failed to update season rankings")
+  }
+}
+
+/**
+ * Master function: updates both scores and rankings for all seasons.
+ */
+export async function updateAllSeasonScoresAndRankings() {
+  console.log("[Scoring] Starting full season score and ranking update...")
+  const startTime = Date.now()
+
+  try {
+    const scoresResult   = await updateAllSeasonScores()
+    const rankingsResult = await updateAllSeasonRankings()
+    const totalDuration  = Date.now() - startTime
+
+    console.log(`[Scoring] Full season update complete in ${totalDuration}ms`)
+
+    return { success: true, totalDurationMs: totalDuration, scores: scoresResult, rankings: rankingsResult }
+  } catch (error) {
+    console.error("[Scoring] Full season update failed:", error)
+    if (error instanceof Error) throw new Error(`Failed to update season scores and rankings: ${error.message}`)
+    throw error
+  }
+}
+
+// ============================================
+// EPISODE SCORING (mirrors season scoring)
+// ============================================
+
+/**
+ * Gets aggregated pillar scores for an episode by slug.
+ * Used by EpisodeRatingSummary to display community averages.
+ */
+export async function getEpisodePillarScoresBySlug(slug: string) {
+  try {
+    const episode = await withRetry(() => prisma.episode.findUnique({
+      where: { slug },
+      select: { id: true, pillarScores: true, score: true },
+      cacheStrategy: { swr: 120, ttl: 60 },
+    }))
+
+    if (!episode) {
+      throw new Error("Episode not found")
+    }
+
+    return {
+      episodeId:    episode.id,
+      pillarScores: (episode.pillarScores as unknown as SeriesPillarScores) || {},
+      overallScore: episode.score,
+    }
+  } catch (error) {
+    console.error(`Error getting pillar scores for episode slug ${slug}:`, error)
+    throw new Error("Failed to get episode pillar scores")
+  }
+}
+
+/**
+ * Updates both pillar scores and overall score for a single episode in one pass.
+ * Mirrors updateSeasonScores exactly.
+ */
+export async function updateEpisodeScores(episodeId: string) {
+  try {
+    const ratingPillars = await withRetry(() => prisma.episodeRatingPillar.findMany({
+      where: { episodeId },
+      include: {
+        pillar: { select: { id: true, type: true, weight: true } },
+      },
+    }))
+
+    const pillarGroups: Record<string, {
+      scores: number[]
+      pillarId: string
+      pillarType: string
+      pillarWeight: number
+    }> = {}
+
+    for (const rating of ratingPillars) {
+      const { type, id, weight } = rating.pillar
+      if (!pillarGroups[type]) {
+        pillarGroups[type] = { scores: [], pillarId: id, pillarType: type, pillarWeight: weight }
+      }
+      pillarGroups[type].scores.push(rating.score)
+    }
+
+    const pillarScores: SeriesPillarScores = {}
+    for (const [type, group] of Object.entries(pillarGroups)) {
+      const sum = group.scores.reduce((acc, s) => acc + s, 0)
+      pillarScores[type] = {
+        avgScore:     Math.round((sum / group.scores.length) * 100) / 100,
+        raterCount:   group.scores.length,
+        pillarId:     group.pillarId,
+        pillarType:   type,
+        pillarWeight: group.pillarWeight,
+      }
+    }
+
+    const overallScore = calculateOverallScore(pillarScores)
+
+    await withRetry(() => prisma.episode.update({
+      where: { id: episodeId },
+      data: {
+        pillarScores: pillarScores as object,
+        score:        overallScore,
+        updatedAt:    new Date(),
+      },
+    }))
+
+    const episode = await withRetry(() => prisma.episode.findUnique({
+      where: { id: episodeId },
+      select: { slug: true },
+    }))
+    if (episode?.slug) {
+      revalidatePath(`/episodes/${episode.slug}`)
+    }
+
+    return { pillarScores: pillarScores as object, overallScore }
+  } catch (error) {
+    console.error(`Error updating scores for episode ${episodeId}:`, error)
+    throw new Error("Failed to update episode scores")
+  }
+}
+
+/**
+ * Updates scores for ALL episodes in the database.
+ * Batch-optimized to avoid N+1 queries. Call from cron job.
+ */
+export async function updateAllEpisodeScores() {
+  console.log("[Scoring] Starting batch score update for all episodes...")
+  const startTime = Date.now()
+
+  try {
+    const allEpisodes = await withRetry(() => prisma.episode.findMany({
+      select: { id: true, slug: true },
+    }))
+
+    const allRatingPillars = await withRetry(() => prisma.episodeRatingPillar.findMany({
+      include: {
+        pillar: { select: { id: true, type: true, weight: true } },
+      },
+    }))
+
+    const ratingsByEpisodeId: Record<string, typeof allRatingPillars> = {}
+    for (const r of allRatingPillars) {
+      if (!ratingsByEpisodeId[r.episodeId]) ratingsByEpisodeId[r.episodeId] = []
+      ratingsByEpisodeId[r.episodeId].push(r)
+    }
+
+    const results: { episodeId: string; slug: string | null; score: number; pillarCount: number }[] = []
+
+    for (const episode of allEpisodes) {
+      const ratings = ratingsByEpisodeId[episode.id] || []
+
+      const pillarGroups: Record<string, {
+        scores: number[]
+        pillarId: string
+        pillarType: string
+        pillarWeight: number
+      }> = {}
+
+      for (const r of ratings) {
+        const { type, id, weight } = r.pillar
+        if (!pillarGroups[type]) {
+          pillarGroups[type] = { scores: [], pillarId: id, pillarType: type, pillarWeight: weight }
+        }
+        pillarGroups[type].scores.push(r.score)
+      }
+
+      const pillarScores: SeriesPillarScores = {}
+      for (const [type, group] of Object.entries(pillarGroups)) {
+        const sum = group.scores.reduce((acc, s) => acc + s, 0)
+        pillarScores[type] = {
+          avgScore:     Math.round((sum / group.scores.length) * 100) / 100,
+          raterCount:   group.scores.length,
+          pillarId:     group.pillarId,
+          pillarType:   type,
+          pillarWeight: group.pillarWeight,
+        }
+      }
+
+      const overallScore = calculateOverallScore(pillarScores)
+
+      await withRetry(() => prisma.episode.update({
+        where: { id: episode.id },
+        data: {
+          pillarScores: Object.keys(pillarScores).length > 0 ? (pillarScores as object) : Prisma.JsonNull,
+          score:        overallScore,
+          updatedAt:    new Date(),
+        },
+      }))
+
+      results.push({ episodeId: episode.id, slug: episode.slug, score: overallScore, pillarCount: Object.keys(pillarScores).length })
+    }
+
+    const duration = Date.now() - startTime
+    console.log(`[Scoring] Episode batch update complete in ${duration}ms. Updated ${results.length} episodes.`)
+
+    revalidatePath("/rankings/episodes")
+
+    return { success: true, updatedCount: results.length, durationMs: duration, results }
+  } catch (error) {
+    console.error("[Scoring] Episode batch update failed:", error)
+    throw new Error("Failed to update all episode scores")
+  }
+}
+
+/**
+ * Updates rankings for all episodes based on their scores.
+ * Assigns ranking 1 to highest score. Mirrors updateAllSeasonRankings.
+ */
+export async function updateAllEpisodeRankings() {
+  console.log("[Scoring] Updating episode rankings...")
+  const startTime = Date.now()
+
+  try {
+    const allEpisodes = await withRetry(() => prisma.episode.findMany({
+      select: { id: true, score: true },
+      orderBy: { score: "desc" },
+    }))
+
+    await withRetry(() => prisma.$transaction(
+      allEpisodes.map((e, i) =>
+        prisma.episode.update({ where: { id: e.id }, data: { ranking: i + 1 } })
+      )
+    ))
+
+    const duration = Date.now() - startTime
+    console.log(`[Scoring] Episode rankings updated in ${duration}ms. Ranked ${allEpisodes.length} episodes.`)
+
+    revalidatePath("/rankings/episodes")
+
+    return { success: true, rankedCount: allEpisodes.length, durationMs: duration }
+  } catch (error) {
+    console.error("[Scoring] Episode ranking update failed:", error)
+    throw new Error("Failed to update episode rankings")
+  }
+}
+
+/**
+ * Master function: updates both scores and rankings for all episodes.
+ */
+export async function updateAllEpisodeScoresAndRankings() {
+  console.log("[Scoring] Starting full episode score and ranking update...")
+  const startTime = Date.now()
+
+  try {
+    const scoresResult   = await updateAllEpisodeScores()
+    const rankingsResult = await updateAllEpisodeRankings()
+    const totalDuration  = Date.now() - startTime
+
+    console.log(`[Scoring] Full episode update complete in ${totalDuration}ms`)
+
+    return { success: true, totalDurationMs: totalDuration, scores: scoresResult, rankings: rankingsResult }
+  } catch (error) {
+    console.error("[Scoring] Full episode update failed:", error)
+    if (error instanceof Error) throw new Error(`Failed to update episode scores and rankings: ${error.message}`)
     throw error
   }
 }

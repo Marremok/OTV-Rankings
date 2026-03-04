@@ -17,6 +17,8 @@ model Pillar {
   updatedAt              DateTime
   mediaType              mediaType
   characterRatingPillars CharacterRatingPillar[]
+  seasonRatingPillars    SeasonRatingPillar[]
+  episodeRatingPillars   EpisodeRatingPillar[]
   questions              Question[]
   ratingPillars          RatingPillar[]
 
@@ -92,6 +94,8 @@ model User {
   profileImage           String?
   account                Account[]
   characterRatingPillars CharacterRatingPillar[]
+  seasonRatingPillars    SeasonRatingPillar[]
+  episodeRatingPillars   EpisodeRatingPillar[]
   donations              Donation[]
   ratingPillars          RatingPillar[]
   session                Session[]
@@ -229,42 +233,82 @@ model CharacterRatingPillar {
 }
 
 model Season {
-  id           String    @id
-  order        Int       @map("seasonNumber")
-  title        String?   @map("name")
-  slug         String?   @unique
-  description  String?
-  posterUrl    String?
-  heroImageUrl String?
-  score        Float     @default(0)
-  ranking      Float     @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime
-  seriesId     String
-  episodes     Episode[]
-  series       Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  id                  String               @id
+  order               Int                  @map("seasonNumber")
+  title               String?              @map("name")
+  slug                String?              @unique
+  description         String?
+  posterUrl           String?
+  heroImageUrl        String?
+  score               Float                @default(0)
+  ranking             Float                @default(0)
+  pillarScores        Json?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime
+  seriesId            String
+  episodes            Episode[]
+  series              Series               @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  seasonRatingPillars SeasonRatingPillar[]
 
   @@index([seriesId])
 }
 
+model SeasonRatingPillar {
+  id        String   @id
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  userId    String
+  seasonId  String
+  pillarId  String
+  season    Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  pillar    Pillar   @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seasonId, pillarId])
+  @@index([userId])
+  @@index([seasonId])
+  @@index([pillarId])
+}
+
 model Episode {
-  id            String   @id
-  episodeNumber Int
-  title         String
-  slug          String?  @unique
-  description   String?
-  heroImageUrl  String?
-  score         Float    @default(0)
-  ranking       Float    @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime
-  seasonId      String
-  seriesId      String?
-  season        Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  series        Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  id                   String                @id
+  episodeNumber        Int
+  title                String
+  slug                 String?               @unique
+  description          String?
+  heroImageUrl         String?
+  score                Float                 @default(0)
+  ranking              Float                 @default(0)
+  pillarScores         Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime
+  seasonId             String
+  seriesId             String?
+  season               Season                @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  series               Series?               @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episodeRatingPillars EpisodeRatingPillar[]
 
   @@index([seasonId])
   @@index([seriesId])
+}
+
+model EpisodeRatingPillar {
+  id        String   @id
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  userId    String
+  episodeId String
+  pillarId  String
+  episode   Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  pillar    Pillar   @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId, pillarId])
+  @@index([userId])
+  @@index([episodeId])
+  @@index([pillarId])
 }
 
 enum mediaType {

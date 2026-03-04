@@ -330,7 +330,7 @@ export async function getTopSeasons(limit: number = 10) {
       include: {
         series: { select: { id: true, title: true, slug: true } },
       },
-      orderBy: { ranking: "desc" },
+      orderBy: { score: "desc" },
       take: limit,
       cacheStrategy: { swr: 60, ttl: 30 },
     }))

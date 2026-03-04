@@ -8,15 +8,23 @@ import {
   getUserRatingPillars,
   getUserRatingsForMultipleSeries,
   getUserRatingsForMultipleCharacters,
+  getUserRatingsForMultipleSeasons,
+  getUserRatingsForMultipleEpisodes,
   getPillarCount,
   editPillar,
   deletePillar,
   createCharacterRatingPillar,
   getUserCharacterRatingPillars,
+  createSeasonRatingPillar,
+  getUserSeasonRatingPillars,
+  createEpisodeRatingPillar,
+  getUserEpisodeRatingPillars,
   CreatePillarInput,
   CreateRatingPillarInput,
   EditPillarInput,
   CreateCharacterRatingPillarInput,
+  CreateSeasonRatingPillarInput,
+  CreateEpisodeRatingPillarInput,
 } from "@/lib/actions/pillars"
 import {
   createQuestion,
@@ -24,7 +32,12 @@ import {
   deleteQuestion,
   CreateQuestionInput,
 } from "@/lib/actions/questions"
-import { getSeriesPillarScoresBySlug, getCharacterPillarScoresBySlug } from "@/lib/actions/scoring"
+import {
+  getSeriesPillarScoresBySlug,
+  getCharacterPillarScoresBySlug,
+  getSeasonPillarScoresBySlug,
+  getEpisodePillarScoresBySlug,
+} from "@/lib/actions/scoring"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { mediaType } from "@/generated/prisma/enums"
 import posthog from "posthog-js"
@@ -310,6 +323,144 @@ export function useGetCharacterPillarScores(slug: string | undefined) {
   return useQuery({
     queryKey: ["characterPillarScores", slug],
     queryFn: () => getCharacterPillarScoresBySlug(slug!),
+    enabled: !!slug,
+  })
+}
+
+// ============================================
+// SEASON RATING PILLAR HOOKS
+// ============================================
+
+/**
+ * Hook for creating/updating a user's SEASON rating pillar.
+ * Mirrors useCreateCharacterRatingPillar but for seasons.
+ */
+export function useCreateSeasonRatingPillar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateSeasonRatingPillarInput) => createSeasonRatingPillar(input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["userSeasonRatingPillars", variables.userId, variables.seasonId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["userRatingsMultipleSeasons", variables.userId],
+      })
+      posthog.capture("pillar_rated", {
+        media_type: "season",
+        season_id:  variables.seasonId,
+        pillar_id:  variables.pillarId,
+        score:      variables.finalScore,
+      })
+    },
+    onError: (error) => console.error("Error while saving season rating:", error),
+  })
+}
+
+/**
+ * Hook for fetching a user's existing season rating pillars.
+ */
+export function useGetUserSeasonRatingPillars(
+  userId: string | undefined,
+  seasonId: string | undefined
+) {
+  return useQuery({
+    queryKey: ["userSeasonRatingPillars", userId, seasonId],
+    queryFn: () => getUserSeasonRatingPillars(userId!, seasonId!),
+    enabled: !!userId && !!seasonId,
+  })
+}
+
+/**
+ * Hook for fetching a user's ratings across multiple seasons.
+ * Used for the season ranking page to show rating status per card.
+ */
+export function useGetUserRatingsForMultipleSeasons(userId: string | undefined, seasonIds: string[]) {
+  return useQuery({
+    queryKey: ["userRatingsMultipleSeasons", userId, seasonIds],
+    queryFn: () => getUserRatingsForMultipleSeasons(userId!, seasonIds),
+    enabled: !!userId && seasonIds.length > 0,
+  })
+}
+
+/**
+ * Hook for fetching aggregated pillar scores for a season by slug.
+ * Used by SeasonRatingSummary to display community scores.
+ */
+export function useGetSeasonPillarScores(slug: string | undefined) {
+  return useQuery({
+    queryKey: ["seasonPillarScores", slug],
+    queryFn: () => getSeasonPillarScoresBySlug(slug!),
+    enabled: !!slug,
+  })
+}
+
+// ============================================
+// EPISODE RATING PILLAR HOOKS
+// ============================================
+
+/**
+ * Hook for creating/updating a user's EPISODE rating pillar.
+ * Mirrors useCreateSeasonRatingPillar but for episodes.
+ */
+export function useCreateEpisodeRatingPillar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateEpisodeRatingPillarInput) => createEpisodeRatingPillar(input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["userEpisodeRatingPillars", variables.userId, variables.episodeId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["userRatingsMultipleEpisodes", variables.userId],
+      })
+      posthog.capture("pillar_rated", {
+        media_type: "episode",
+        episode_id: variables.episodeId,
+        pillar_id:  variables.pillarId,
+        score:      variables.finalScore,
+      })
+    },
+    onError: (error) => console.error("Error while saving episode rating:", error),
+  })
+}
+
+/**
+ * Hook for fetching a user's existing episode rating pillars.
+ */
+export function useGetUserEpisodeRatingPillars(
+  userId: string | undefined,
+  episodeId: string | undefined
+) {
+  return useQuery({
+    queryKey: ["userEpisodeRatingPillars", userId, episodeId],
+    queryFn: () => getUserEpisodeRatingPillars(userId!, episodeId!),
+    enabled: !!userId && !!episodeId,
+  })
+}
+
+/**
+ * Hook for fetching a user's ratings across multiple episodes.
+ * Used for the episode ranking page to show rating status per card.
+ */
+export function useGetUserRatingsForMultipleEpisodes(userId: string | undefined, episodeIds: string[]) {
+  return useQuery({
+    queryKey: ["userRatingsMultipleEpisodes", userId, episodeIds],
+    queryFn: () => getUserRatingsForMultipleEpisodes(userId!, episodeIds),
+    enabled: !!userId && episodeIds.length > 0,
+  })
+}
+
+/**
+ * Hook for fetching aggregated pillar scores for an episode by slug.
+ * Used by EpisodeRatingSummary to display community scores.
+ */
+export function useGetEpisodePillarScores(slug: string | undefined) {
+  return useQuery({
+    queryKey: ["episodePillarScores", slug],
+    queryFn: () => getEpisodePillarScoresBySlug(slug!),
     enabled: !!slug,
   })
 }

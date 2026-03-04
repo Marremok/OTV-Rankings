@@ -3,18 +3,22 @@
 import prisma, { withRetry } from "../prisma"
 import { revalidatePath } from "next/cache"
 import { mediaType } from "@/generated/prisma/enums"
-import type { Pillar, Question, RatingPillar, CharacterRatingPillar } from "@/generated/prisma/client"
+import type { Pillar, Question, RatingPillar, CharacterRatingPillar, SeasonRatingPillar, EpisodeRatingPillar } from "@/generated/prisma/client"
 import {
   createPillarSchema,
   editPillarSchema,
   createRatingPillarSchema,
   createCharacterRatingPillarSchema,
+  createSeasonRatingPillarSchema,
+  createEpisodeRatingPillarSchema,
   safeValidate,
 } from "@/lib/validations"
 
 export type PillarWithQuestions = Pillar & { questions: Question[] }
 export type RatingPillarWithPillar = RatingPillar & { pillar: Pillar }
 export type CharacterRatingPillarWithPillar = CharacterRatingPillar & { pillar: Pillar }
+export type SeasonRatingPillarWithPillar = SeasonRatingPillar & { pillar: Pillar }
+export type EpisodeRatingPillarWithPillar = EpisodeRatingPillar & { pillar: Pillar }
 
 // ============================================
 // PILLAR TEMPLATE ACTIONS (Admin)
@@ -580,5 +584,229 @@ export async function getPillarCount(mediaTypeFilter: mediaType) {
   } catch (error) {
     console.error("Error getting pillar count:", error)
     return 0
+  }
+}
+
+// ============================================
+// SEASON RATING PILLAR ACTIONS (User ratings for seasons)
+// ============================================
+
+export interface CreateSeasonRatingPillarInput {
+  userId:   string
+  seasonId: string
+  pillarId: string
+  finalScore: number
+}
+
+/**
+ * Creates or updates a user's rating for a specific pillar on a season.
+ * Mirrors createCharacterRatingPillar exactly but uses seasonId.
+ */
+export async function createSeasonRatingPillar(input: CreateSeasonRatingPillarInput) {
+  try {
+    const validation = safeValidate(createSeasonRatingPillarSchema, input)
+    if (!validation.success) throw new Error(validation.error)
+    const v = validation.data
+
+    const pillar = await withRetry(() => prisma.pillar.findUnique({ where: { id: v.pillarId } }))
+    if (!pillar) throw new Error("Pillar not found")
+
+    const season = await withRetry(() => prisma.season.findUnique({ where: { id: v.seasonId } }))
+    if (!season) throw new Error("Season not found")
+
+    const roundedScore = Math.round(v.finalScore * 100) / 100
+
+    const ratingPillar = await withRetry(() => prisma.seasonRatingPillar.upsert({
+      where: {
+        userId_seasonId_pillarId: {
+          userId:   v.userId,
+          seasonId: v.seasonId,
+          pillarId: v.pillarId,
+        },
+      },
+      create: {
+        id:       crypto.randomUUID(),
+        userId:   v.userId,
+        seasonId: v.seasonId,
+        pillarId: v.pillarId,
+        score:    roundedScore,
+        updatedAt: new Date(),
+      },
+      update: {
+        score:     roundedScore,
+        updatedAt: new Date(),
+      },
+    }))
+
+    return ratingPillar
+  } catch (error: any) {
+    console.error("Error creating season rating pillar:", error)
+    if (error.message?.includes("required") || error.message?.includes("not found")) throw error
+    throw new Error("Failed to save season rating")
+  }
+}
+
+/**
+ * Fetches all rating pillars for a user on a specific season.
+ * Mirrors getUserCharacterRatingPillars.
+ */
+export async function getUserSeasonRatingPillars(userId: string, seasonId: string): Promise<SeasonRatingPillarWithPillar[]> {
+  try {
+    if (!userId)   throw new Error("User ID is required")
+    if (!seasonId) throw new Error("Season ID is required")
+
+    return await withRetry(() => prisma.seasonRatingPillar.findMany({
+      where:   { userId, seasonId },
+      include: { pillar: true },
+      orderBy: { createdAt: "asc" },
+    })) as SeasonRatingPillarWithPillar[]
+  } catch (error) {
+    console.error("Error fetching user season rating pillars:", error)
+    throw new Error("Failed to fetch user season ratings")
+  }
+}
+
+/**
+ * Fetches all season rating pillars for a user across multiple seasons.
+ * Returns a map of seasonId -> user ratings for efficient lookup.
+ * Mirrors getUserRatingsForMultipleCharacters.
+ */
+export async function getUserRatingsForMultipleSeasons(userId: string, seasonIds: string[]): Promise<Record<string, SeasonRatingPillarWithPillar[]>> {
+  try {
+    if (!userId) return {}
+    if (!seasonIds.length) return {}
+
+    const ratingPillars = await withRetry(() => prisma.seasonRatingPillar.findMany({
+      where: {
+        userId,
+        seasonId: { in: seasonIds },
+      },
+      include: { pillar: true },
+    }))
+
+    const ratingsMap: Record<string, typeof ratingPillars> = {}
+    for (const rating of ratingPillars) {
+      if (!ratingsMap[rating.seasonId]) {
+        ratingsMap[rating.seasonId] = []
+      }
+      ratingsMap[rating.seasonId].push(rating)
+    }
+
+    return ratingsMap as Record<string, SeasonRatingPillarWithPillar[]>
+  } catch (error) {
+    console.error("Error fetching user ratings for multiple seasons:", error)
+    return {}
+  }
+}
+
+// ============================================
+// EPISODE RATING PILLAR ACTIONS (User ratings for episodes)
+// ============================================
+
+export interface CreateEpisodeRatingPillarInput {
+  userId:    string
+  episodeId: string
+  pillarId:  string
+  finalScore: number
+}
+
+/**
+ * Creates or updates a user's rating for a specific pillar on an episode.
+ * Mirrors createSeasonRatingPillar but uses episodeId.
+ */
+export async function createEpisodeRatingPillar(input: CreateEpisodeRatingPillarInput) {
+  try {
+    const validation = safeValidate(createEpisodeRatingPillarSchema, input)
+    if (!validation.success) throw new Error(validation.error)
+    const v = validation.data
+
+    const pillar = await withRetry(() => prisma.pillar.findUnique({ where: { id: v.pillarId } }))
+    if (!pillar) throw new Error("Pillar not found")
+
+    const episode = await withRetry(() => prisma.episode.findUnique({ where: { id: v.episodeId } }))
+    if (!episode) throw new Error("Episode not found")
+
+    const roundedScore = Math.round(v.finalScore * 100) / 100
+
+    const ratingPillar = await withRetry(() => prisma.episodeRatingPillar.upsert({
+      where: {
+        userId_episodeId_pillarId: {
+          userId:    v.userId,
+          episodeId: v.episodeId,
+          pillarId:  v.pillarId,
+        },
+      },
+      create: {
+        id:        crypto.randomUUID(),
+        userId:    v.userId,
+        episodeId: v.episodeId,
+        pillarId:  v.pillarId,
+        score:     roundedScore,
+        updatedAt: new Date(),
+      },
+      update: {
+        score:     roundedScore,
+        updatedAt: new Date(),
+      },
+    }))
+
+    return ratingPillar
+  } catch (error: any) {
+    console.error("Error creating episode rating pillar:", error)
+    if (error.message?.includes("required") || error.message?.includes("not found")) throw error
+    throw new Error("Failed to save episode rating")
+  }
+}
+
+/**
+ * Fetches all rating pillars for a user on a specific episode.
+ * Mirrors getUserSeasonRatingPillars.
+ */
+export async function getUserEpisodeRatingPillars(userId: string, episodeId: string): Promise<EpisodeRatingPillarWithPillar[]> {
+  try {
+    if (!userId)    throw new Error("User ID is required")
+    if (!episodeId) throw new Error("Episode ID is required")
+
+    return await withRetry(() => prisma.episodeRatingPillar.findMany({
+      where:   { userId, episodeId },
+      include: { pillar: true },
+      orderBy: { createdAt: "asc" },
+    })) as EpisodeRatingPillarWithPillar[]
+  } catch (error) {
+    console.error("Error fetching user episode rating pillars:", error)
+    throw new Error("Failed to fetch user episode ratings")
+  }
+}
+
+/**
+ * Fetches all episode rating pillars for a user across multiple episodes.
+ * Returns a map of episodeId -> user ratings for efficient lookup.
+ * Mirrors getUserRatingsForMultipleSeasons.
+ */
+export async function getUserRatingsForMultipleEpisodes(userId: string, episodeIds: string[]): Promise<Record<string, EpisodeRatingPillarWithPillar[]>> {
+  try {
+    if (!userId) return {}
+    if (!episodeIds.length) return {}
+
+    const ratingPillars = await withRetry(() => prisma.episodeRatingPillar.findMany({
+      where: {
+        userId,
+        episodeId: { in: episodeIds },
+      },
+      include: { pillar: true },
+    }))
+
+    const ratingsMap: Record<string, typeof ratingPillars> = {}
+    for (const rating of ratingPillars) {
+      if (!ratingsMap[rating.episodeId]) {
+        ratingsMap[rating.episodeId] = []
+      }
+      ratingsMap[rating.episodeId].push(rating)
+    }
+
+    return ratingsMap as Record<string, EpisodeRatingPillarWithPillar[]>
+  } catch (error) {
+    console.error("Error fetching user ratings for multiple episodes:", error)
+    return {}
   }
 }

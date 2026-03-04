@@ -1,14 +1,12 @@
 "use client";
 
-import { Loader2, Film, User, Users, Layers, Tv } from "lucide-react";
+import { Loader2, Film, User, Users } from "lucide-react";
 import { Command, CommandList, CommandEmpty } from "@/components/ui/command";
 import type { GroupedSearchResults } from "@/lib/validations/search";
 import { SearchResultGroup } from "./SearchResultGroup";
 import { SeriesSearchItem } from "./SeriesSearchItem";
 import { CharacterSearchItem } from "./CharacterSearchItem";
 import { UserSearchItem } from "./UserSearchItem";
-import { SeasonSearchItem } from "./SeasonSearchItem";
-import { EpisodeSearchItem } from "./EpisodeSearchItem";
 
 interface SearchResultsProps {
   data: GroupedSearchResults | undefined;
@@ -21,9 +19,7 @@ export function SearchResults({ data, isLoading, query, onSelect }: SearchResult
   const hasResults = data && (
     data.series.length > 0 ||
     data.characters.length > 0 ||
-    data.users.length > 0 ||
-    data.seasons.length > 0 ||
-    data.episodes.length > 0
+    data.users.length > 0
   );
   const showEmpty = query.length > 0 && !isLoading && !hasResults;
 
@@ -56,22 +52,6 @@ export function SearchResults({ data, isLoading, query, onSelect }: SearchResult
               <SearchResultGroup title="Characters" icon={User}>
                 {data.characters.map((character) => (
                   <CharacterSearchItem key={character.id} character={character} onSelect={onSelect} />
-                ))}
-              </SearchResultGroup>
-            )}
-
-            {data.seasons.length > 0 && (
-              <SearchResultGroup title="Seasons" icon={Layers}>
-                {data.seasons.map((season) => (
-                  <SeasonSearchItem key={season.id} season={season} onSelect={onSelect} />
-                ))}
-              </SearchResultGroup>
-            )}
-
-            {data.episodes.length > 0 && (
-              <SearchResultGroup title="Episodes" icon={Tv}>
-                {data.episodes.map((episode) => (
-                  <EpisodeSearchItem key={episode.id} episode={episode} onSelect={onSelect} />
                 ))}
               </SearchResultGroup>
             )}

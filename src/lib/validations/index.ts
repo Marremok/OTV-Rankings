@@ -7,10 +7,14 @@ export {
   getUserRatingPillarsSchema,
   pillarIdSchema,
   createCharacterRatingPillarSchema,
+  createSeasonRatingPillarSchema,
+  createEpisodeRatingPillarSchema,
   type CreatePillarInput,
   type EditPillarInput,
   type CreateRatingPillarInput,
   type CreateCharacterRatingPillarInput,
+  type CreateSeasonRatingPillarInput,
+  type CreateEpisodeRatingPillarInput,
 } from "./pillar";
 
 // Series validations

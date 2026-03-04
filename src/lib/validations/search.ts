@@ -14,7 +14,7 @@ export const searchQuerySchema = z.object({
   types: z
     .array(z.enum(["series", "character", "user", "season", "episode"]))
     .optional()
-    .default(["series", "character", "user", "season", "episode"]),
+    .default(["series", "character", "user"]),
 });
 
 export type SearchQueryInput = z.infer<typeof searchQuerySchema>;

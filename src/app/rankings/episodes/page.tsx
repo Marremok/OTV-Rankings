@@ -1,14 +1,36 @@
 "use client"
 
 import { useGetTop100Episodes } from "@/hooks/use-rankings"
+import { useGetUserRatingsForMultipleEpisodes, useGetPillarCount } from "@/hooks/use-pillars"
+import { useSession } from "@/lib/auth-client"
 import { Card } from "@/components/ui/card"
-import { Loader2, Tv } from "lucide-react"
+import { ChevronRight, Loader2, Star, Tv } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { mediaType } from "@/generated/prisma/enums"
+import { useMemo } from "react"
 import { getScoreColor } from "@/components/seriespage/pillar-utils"
 
+function calculateWeightedSum(ratings: { score: number; pillar: { weight: number } }[]) {
+  if (!ratings.length) return 0
+  let weightedSum = 0
+  let totalWeight = 0
+  for (const rating of ratings) {
+    weightedSum += rating.score * rating.pillar.weight
+    totalWeight += rating.pillar.weight
+  }
+  if (totalWeight === 0) return 0
+  return Math.round((weightedSum / totalWeight) * 100) / 100
+}
+
 export default function EpisodesRankingPage() {
+  const { data: session } = useSession()
+  const userId = session?.user?.id
   const { data: episodes = [], isLoading, isError } = useGetTop100Episodes()
+  const { data: totalPillarCount = 0 } = useGetPillarCount(mediaType.EPISODE)
+
+  const episodeIds = useMemo(() => episodes.map(e => e.id), [episodes])
+  const { data: userRatingsMap = {} } = useGetUserRatingsForMultipleEpisodes(userId, episodeIds)
 
   return (
     <div className="relative min-h-screen bg-background text-foreground py-16 px-4 md:px-8 overflow-hidden">
@@ -38,85 +60,184 @@ export default function EpisodesRankingPage() {
       {/* Episode list */}
       <div className="relative max-w-5xl mx-auto">
         {isLoading && (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
+          <div className="flex justify-center py-16">
+            <Loader2 className="animate-spin size-6" />
           </div>
         )}
 
         {isError && (
-          <p className="text-center text-destructive py-16">Failed to load episodes.</p>
+          <p className="text-destructive py-16 text-center">Failed to load episodes.</p>
         )}
 
         {!isLoading && !isError && episodes.length === 0 && (
-          <p className="text-center text-muted-foreground py-16">No episodes have been ranked yet.</p>
+          <p className="text-muted-foreground py-16 text-center">No episodes ranked yet.</p>
         )}
 
-        {!isLoading && !isError && episodes.length > 0 && (
-          <div className="space-y-3">
+        {episodes.length > 0 && (
+          <div className="flex flex-col gap-6">
             {episodes.map((episode, index) => {
-              const seasonLabel = episode.season
-                ? `S${String(episode.season.order).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`
+              const seasonOrder = episode.season?.order
+              const seasonLabel = seasonOrder != null
+                ? `S${String(seasonOrder).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`
                 : `E${String(episode.episodeNumber).padStart(2, "0")}`
               const seriesTitle = (episode as any).season?.series?.title ?? null
+              const seriesSlug = (episode as any).season?.series?.slug ?? null
 
               return (
-                <Link
+                <Card
                   key={episode.id}
-                  href={episode.slug ? `/episodes/${episode.slug}` : "#"}
-                  className="group block"
+                  className="group relative flex w-full flex-row overflow-hidden border-none bg-linear-to-br from-primary/7 via-primary/4
+                    to-background transition-all duration-700 hover:shadow-[0_0_80px_-20px_rgba(var(--primary-rgb),0.3)]"
                 >
-                  <Card className="relative flex w-full flex-row overflow-hidden border-none bg-linear-to-br from-primary/7 via-primary/4 to-background transition-all duration-700 hover:shadow-[0_0_80px_-20px_rgba(var(--primary-rgb),0.3)]">
-                    {/* Rank number */}
-                    <div className="flex w-8 sm:w-12 shrink-0 items-center justify-center border-r border-border/30">
-                      <span className={cn(
-                        "text-sm sm:text-lg font-black",
-                        index === 0 && "text-yellow-400",
-                        index === 1 && "text-zinc-300",
-                        index === 2 && "text-amber-600",
-                        index > 2 && "text-muted-foreground"
-                      )}>
-                        {index + 1}
-                      </span>
+                  {/* Neon edge — color-coded by score */}
+                  <div className={cn(
+                    "absolute left-0 top-0 h-full w-0.75 scale-y-0 transition-transform duration-500 group-hover:scale-y-100 shadow-[0_0_15px_currentcolor]",
+                    getScoreColor(episode.score).neon
+                  )} />
+
+                  {/* LEFT: Thumbnail in 2:3 portrait container */}
+                  <Link href={episode.slug ? `/episodes/${episode.slug}` : "#"} className="relative aspect-[2/3] w-28 sm:w-36 md:w-44 shrink-0 overflow-hidden">
+                    {episode.heroImageUrl ? (
+                      <img
+                        src={episode.heroImageUrl}
+                        alt={episode.title}
+                        className="h-full w-full object-cover transition-transform duration-[2s] cubic-bezier(0.2, 1, 0.2, 1) group-hover:scale-110 group-hover:rotate-1"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-zinc-900">
+                        <Tv className="size-14 text-zinc-700" />
+                      </div>
+                    )}
+
+                    {/* Rank badge */}
+                    <div className="absolute left-0 top-0 z-30">
+                      <div className="relative flex h-8 w-10 sm:h-12 sm:w-16 items-center justify-center overflow-hidden border-b border-r border-white/20 bg-black/60 backdrop-blur-xl">
+                        <span className="relative z-10 font-mono text-sm sm:text-xl font-black italic tracking-tighter text-white">
+                          #{String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div className="absolute inset-0 bg-linear-to-b from-primary/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-pulse" />
+                      </div>
                     </div>
 
-                    {/* Thumbnail */}
-                    <div className="relative aspect-video w-32 sm:w-40 shrink-0 overflow-hidden">
-                      {episode.heroImageUrl ? (
-                        <img
-                          src={episode.heroImageUrl}
-                          alt={episode.title}
-                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-zinc-900">
-                          <Tv className="h-8 w-8 text-zinc-700" />
+                    <div className="absolute inset-0 bg-linear-to-r from-black/40 via-transparent to-transparent pointer-events-none" />
+                  </Link>
+
+                  {/* RIGHT: Content */}
+                  <div className="relative flex flex-1 flex-col justify-between p-4 md:p-8 lg:p-10">
+                    <div className="absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-[0.03] pointer-events-none bg-[grid-white_20px]" />
+
+                    <div className="space-y-5">
+                      <div className="space-y-3">
+                        <Link href={episode.slug ? `/episodes/${episode.slug}` : "#"} className="block">
+                          <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extralight tracking-tighter text-zinc-100 transition-all duration-700 group-hover:text-white group-hover:translate-x-1 hover:underline decoration-primary/50 underline-offset-4">
+                            {episode.title}
+                          </h3>
+                        </Link>
+
+                        {/* Episode label + series tag */}
+                        <div className="hidden sm:flex flex-wrap gap-4 items-center">
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">
+                            {seasonLabel}
+                          </span>
+                          {seriesTitle && (
+                            <Link href={seriesSlug ? `/series/${seriesSlug}` : "#"} className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 transition-colors group-hover:text-primary hover:text-primary">
+                              // {seriesTitle}
+                            </Link>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Info */}
-                    <div className="flex flex-1 flex-col justify-center gap-1 px-4 py-3 min-w-0">
-                      <h2 className="font-bold text-base leading-tight line-clamp-1 group-hover:text-primary transition-colors">
-                        {episode.title}
-                      </h2>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {seasonLabel}{seriesTitle ? ` · ${seriesTitle}` : ""}
+                      <p className="hidden sm:block max-w-2xl line-clamp-2 text-sm font-light leading-relaxed text-zinc-500 transition-colors duration-500 group-hover:text-zinc-400">
+                        {episode.description || "Episode details coming soon."}
                       </p>
                     </div>
 
-                    {/* Score */}
-                    <div className="flex items-center gap-2 pr-4 shrink-0">
-                      <div className={cn(
-                        "flex h-12 w-12 flex-col items-center justify-center rounded-full ring-2 transition-colors",
-                        getScoreColor(episode.score).ring,
-                      )}>
-                        <span className={cn("text-lg font-black leading-none", getScoreColor(episode.score).text)}>
-                          {episode.score.toFixed(1)}
-                        </span>
+                    {/* Bottom bar: score + CTA */}
+                    <div className="flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4 md:pt-8">
+                      <div className="flex flex-wrap gap-4 md:gap-8 lg:gap-16">
+                        {/* OTV-Score */}
+                        <div className="flex flex-col gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/70 animate-pulse">OTV-Score</span>
+                          <div className="flex items-baseline gap-2">
+                            <span className={cn(
+                              "text-3xl md:text-5xl font-black tracking-tighter tabular-nums drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]",
+                              getScoreColor(episode.score).text
+                            )}>
+                              {episode.score.toFixed(2)}
+                            </span>
+                            <span className="text-sm font-bold text-zinc-800 tracking-tighter italic">/ 10.00</span>
+                          </div>
+                        </div>
+
+                        {/* USER RATING STATUS */}
+                        {(() => {
+                          const userRatings = userRatingsMap[episode.id] || []
+                          const ratedCount = userRatings.length
+                          const hasRatedAll = ratedCount >= totalPillarCount && totalPillarCount > 0
+                          const hasRatedSome = ratedCount > 0 && !hasRatedAll
+                          const userScore = calculateWeightedSum(userRatings)
+
+                          if (ratedCount === 0) {
+                            return (
+                              <div className="flex flex-col gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-700">Rate Yourself</span>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/5 bg-zinc-900/50 text-zinc-500 transition-all duration-500 group-hover:border-primary/40 group-hover:text-primary group-hover:shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]">
+                                  <Star className="h-6 w-6" />
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          if (hasRatedSome) {
+                            return (
+                              <div className="flex flex-col gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500/70">Current rating</span>
+                                <div className="flex items-center gap-3">
+                                  <span className={cn("text-3xl md:text-5xl font-black tracking-tighter tabular-nums", getScoreColor(userScore).text)}>
+                                    {userScore.toFixed(2)}
+                                  </span>
+                                  <Link href={episode.slug ? `/episodes/${episode.slug}` : "#"}>
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-900/20 text-amber-500 transition-all duration-500 group-hover:border-amber-500/40 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                                      <Star className="h-5 w-5" />
+                                    </div>
+                                  </Link>
+                                </div>
+                                <span className="text-[10px] font-medium text-amber-500/60">Finish your rating</span>
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div className="flex flex-col gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500/70">Your rating</span>
+                              <div className="flex items-center gap-3">
+                                <span className={cn("text-3xl md:text-5xl font-black tracking-tighter tabular-nums", getScoreColor(userScore).text)}>
+                                  {userScore.toFixed(2)}
+                                </span>
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-900/20 text-emerald-500">
+                                  <Star className="h-5 w-5 fill-emerald-500" />
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
+
+                      {/* CTA */}
+                      <Link
+                        href={episode.slug ? `/episodes/${episode.slug}` : "#"}
+                        className="hidden sm:flex group/btn relative items-center gap-2 md:gap-4 overflow-hidden rounded-full bg-white px-4 md:px-8 py-2 md:py-3 transition-all duration-500 hover:bg-primary hover:text-white"
+                      >
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-black group-hover/btn:text-white">
+                          More Info
+                        </span>
+                        <div className="hidden md:block h-px w-8 bg-black/20 group-hover/btn:bg-white/40" />
+                        <ChevronRight className="h-5 w-5 text-black group-hover/btn:text-white transition-transform group-hover/btn:translate-x-1" />
+                        <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full" />
+                      </Link>
                     </div>
-                  </Card>
-                </Link>
+                  </div>
+                </Card>
               )
             })}
           </div>

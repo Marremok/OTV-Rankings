@@ -300,7 +300,7 @@ export async function getTopCharacters(limit: number = 10): Promise<CharacterWit
           select: { id: true, title: true, slug: true },
         },
       },
-      orderBy: { ranking: "desc" },
+      orderBy: { score: "desc" },
       take: limit,
       cacheStrategy: { swr: 60, ttl: 30 },
     }))

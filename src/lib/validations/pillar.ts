@@ -61,3 +61,23 @@ export const createCharacterRatingPillarSchema = z.object({
 });
 
 export type CreateCharacterRatingPillarInput = z.infer<typeof createCharacterRatingPillarSchema>;
+
+// Schema for creating a user's SEASON rating
+export const createSeasonRatingPillarSchema = z.object({
+  userId:   z.string().min(1, "User ID is required"),
+  seasonId: z.string().min(1, "Season ID is required"),
+  pillarId: z.string().min(1, "Pillar ID is required"),
+  finalScore: z.number().min(0, "Score must be at least 0").max(10, "Score must be 10 or less"),
+});
+
+export type CreateSeasonRatingPillarInput = z.infer<typeof createSeasonRatingPillarSchema>;
+
+// Schema for creating a user's EPISODE rating
+export const createEpisodeRatingPillarSchema = z.object({
+  userId:    z.string().min(1, "User ID is required"),
+  episodeId: z.string().min(1, "Episode ID is required"),
+  pillarId:  z.string().min(1, "Pillar ID is required"),
+  finalScore: z.number().min(0, "Score must be at least 0").max(10, "Score must be 10 or less"),
+});
+
+export type CreateEpisodeRatingPillarInput = z.infer<typeof createEpisodeRatingPillarSchema>;
