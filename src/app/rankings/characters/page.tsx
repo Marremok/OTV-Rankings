@@ -8,7 +8,7 @@ import { ChevronRight, Loader2, User, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { mediaType } from "@/generated/prisma/enums"
-import { useMemo } from "react"
+import { useMemo, useEffect } from "react"
 import { getScoreColor } from "@/components/seriespage/pillar-utils"
 
 function calculateWeightedSum(ratings: { score: number; pillar: { weight: number } }[]) {
@@ -31,6 +31,18 @@ export default function CharactersRankingPage() {
 
   const characterIds = useMemo(() => characters.map(c => c.id), [characters])
   const { data: userRatingsMap = {} } = useGetUserRatingsForMultipleCharacters(userId, characterIds)
+
+  const SCROLL_KEY = "rankingScroll:/rankings/characters"
+  useEffect(() => {
+    const saved = sessionStorage.getItem(SCROLL_KEY)
+    if (saved) {
+      requestAnimationFrame(() => window.scrollTo({ top: parseInt(saved), behavior: "instant" }))
+      sessionStorage.removeItem(SCROLL_KEY)
+    }
+  }, [])
+  function saveScroll() {
+    sessionStorage.setItem(SCROLL_KEY, String(Math.round(window.scrollY)))
+  }
 
   return (
     <div className="relative min-h-screen bg-background text-foreground py-16 px-4 md:px-8 overflow-hidden">
@@ -75,8 +87,11 @@ export default function CharactersRankingPage() {
 
         {characters.length > 0 && (
           <div className="flex flex-col gap-6">
-            {characters.map((c, index) => (
-              <Card
+            {characters.map((c, index) => {
+              const detailHref = c.slug
+                ? `/characters/${c.slug}?backLabel=${encodeURIComponent("Characters")}&backHref=${encodeURIComponent("/rankings/characters")}`
+                : "#"
+              return <Card
                 key={c.id}
                 className="group relative flex w-full flex-row overflow-hidden border-none bg-linear-to-br from-primary/7 via-primary/4
                   to-background transition-all duration-700 hover:shadow-[0_0_80px_-20px_rgba(var(--primary-rgb),0.3)]"
@@ -88,7 +103,7 @@ export default function CharactersRankingPage() {
                 )} />
 
                 {/* LEFT: Poster */}
-                <Link href={c.slug ? `/characters/${c.slug}` : "#"} className="relative aspect-[2/3] w-28 sm:w-36 md:w-44 shrink-0 overflow-hidden">
+                <Link href={detailHref} onClick={saveScroll} className="relative aspect-[2/3] w-28 sm:w-36 md:w-44 shrink-0 overflow-hidden">
                   {c.posterUrl ? (
                     <img
                       src={c.posterUrl}
@@ -120,7 +135,7 @@ export default function CharactersRankingPage() {
 
                   <div className="space-y-5">
                     <div className="space-y-3">
-                      <Link href={c.slug ? `/characters/${c.slug}` : "#"} className="block">
+                      <Link href={detailHref} onClick={saveScroll} className="block">
                         <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extralight tracking-tighter text-zinc-100 transition-all duration-700 group-hover:text-white group-hover:translate-x-1 hover:underline decoration-primary/50 underline-offset-4">
                           {c.name}
                         </h3>
@@ -185,7 +200,7 @@ export default function CharactersRankingPage() {
                                 <span className={cn("text-3xl md:text-5xl font-black tracking-tighter tabular-nums", getScoreColor(userScore).text)}>
                                   {userScore.toFixed(2)}
                                 </span>
-                                <Link href={c.slug ? `/characters/${c.slug}` : "#"}>
+                                <Link href={detailHref} onClick={saveScroll}>
                                   <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-900/20 text-amber-500 transition-all duration-500 group-hover:border-amber-500/40 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]">
                                     <Star className="h-5 w-5" />
                                   </div>
@@ -214,7 +229,7 @@ export default function CharactersRankingPage() {
 
                     {/* CTA */}
                     <Link
-                      href={c.slug ? `/characters/${c.slug}` : "#"}
+                      href={detailHref} onClick={saveScroll}
                       className="hidden sm:flex group/btn relative items-center gap-2 md:gap-4 overflow-hidden rounded-full bg-white px-4 md:px-8 py-2 md:py-3 transition-all duration-500 hover:bg-primary hover:text-white"
                     >
                       <span className="text-[11px] font-black uppercase tracking-[0.2em] text-black group-hover/btn:text-white">
@@ -227,7 +242,7 @@ export default function CharactersRankingPage() {
                   </div>
                 </div>
               </Card>
-            ))}
+            })}
           </div>
         )}
       </div>

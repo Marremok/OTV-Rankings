@@ -11,6 +11,8 @@ import { ChevronDown, Menu, X } from 'lucide-react';
 
 const rankingLinks = [
   { label: 'TV Series', href: '/rankings/tv-series' },
+  { label: 'Seasons', href: '/rankings/seasons' },
+  { label: 'Episodes', href: '/rankings/episodes' },
   { label: 'Characters', href: '/rankings/characters' },
 ];
 

@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useGetEpisodeBySlug } from "@/hooks/use-episodes";
 import {
   EpisodeHero,
+  EpisodeDescriptionSection,
   EpisodeRatingSummary,
   EpisodePillarsSection,
 } from "@/components/episodespage";
@@ -40,10 +41,14 @@ export default function EpisodePage() {
         <EpisodeHero
           title={episode.title}
           episodeNumber={episode.episodeNumber}
-          description={episode.description}
           heroImageUrl={episode.heroImageUrl}
-          score={episode.score}
           season={episode.season}
+        />
+        <EpisodeDescriptionSection
+          title={episode.title}
+          description={episode.description}
+          score={episode.score}
+          ranking={episode.ranking > 0 ? episode.ranking : undefined}
         />
         <EpisodeRatingSummary slug={slug} />
         <EpisodePillarsSection episodeId={episode.id} />

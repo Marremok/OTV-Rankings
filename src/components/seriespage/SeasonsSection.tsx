@@ -14,9 +14,11 @@ import { useGetSeasonsBySeries } from "@/hooks/use-seasons"
 
 interface SeasonsSectionProps {
   seriesId: string
+  seriesTitle: string
+  seriesSlug: string | null
 }
 
-export function SeasonsSection({ seriesId }: SeasonsSectionProps) {
+export function SeasonsSection({ seriesId, seriesTitle, seriesSlug }: SeasonsSectionProps) {
   const { data: seasons, isLoading } = useGetSeasonsBySeries(seriesId)
 
   if (isLoading) {
@@ -105,7 +107,9 @@ export function SeasonsSection({ seriesId }: SeasonsSectionProps) {
                   {/* Middle section: Title, episodes, description */}
                   <div className="flex-1 min-w-0 py-1">
                     <Link
-                      href={season.slug ? `/seasons/${season.slug}` : "#"}
+                      href={season.slug
+                        ? `/seasons/${season.slug}?backLabel=${encodeURIComponent(seriesTitle)}&backHref=${encodeURIComponent(seriesSlug ? `/series/${seriesSlug}` : "/rankings/tv-series")}`
+                        : "#"}
                       className={cn(
                         "text-lg sm:text-xl font-bold transition-colors duration-300 truncate block",
                         "text-foreground group-hover:text-primary"
@@ -160,7 +164,9 @@ export function SeasonsSection({ seriesId }: SeasonsSectionProps) {
                       {season.episodes.map((episode) => (
                         <Link
                           key={episode.id}
-                          href={episode.slug ? `/episodes/${episode.slug}` : "#"}
+                          href={episode.slug
+                            ? `/episodes/${episode.slug}?backLabel=${encodeURIComponent(season.title ?? `Season ${season.order}`)}&backHref=${encodeURIComponent(season.slug ? `/seasons/${season.slug}` : `/series/${seriesSlug}`)}`
+                            : "#"}
                           className="flex items-center gap-4 sm:gap-5 px-5 sm:px-6 py-4 hover:bg-muted/30 transition-colors group/ep relative overflow-hidden"
                         >
                           {/* Hover highlight for episodes */}

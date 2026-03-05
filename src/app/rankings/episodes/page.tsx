@@ -8,7 +8,7 @@ import { ChevronRight, Loader2, Star, Tv } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { mediaType } from "@/generated/prisma/enums"
-import { useMemo } from "react"
+import { useMemo, useEffect } from "react"
 import { getScoreColor } from "@/components/seriespage/pillar-utils"
 
 function calculateWeightedSum(ratings: { score: number; pillar: { weight: number } }[]) {
@@ -31,6 +31,18 @@ export default function EpisodesRankingPage() {
 
   const episodeIds = useMemo(() => episodes.map(e => e.id), [episodes])
   const { data: userRatingsMap = {} } = useGetUserRatingsForMultipleEpisodes(userId, episodeIds)
+
+  const SCROLL_KEY = "rankingScroll:/rankings/episodes"
+  useEffect(() => {
+    const saved = sessionStorage.getItem(SCROLL_KEY)
+    if (saved) {
+      requestAnimationFrame(() => window.scrollTo({ top: parseInt(saved), behavior: "instant" }))
+      sessionStorage.removeItem(SCROLL_KEY)
+    }
+  }, [])
+  function saveScroll() {
+    sessionStorage.setItem(SCROLL_KEY, String(Math.round(window.scrollY)))
+  }
 
   return (
     <div className="relative min-h-screen bg-background text-foreground py-16 px-4 md:px-8 overflow-hidden">
@@ -82,6 +94,9 @@ export default function EpisodesRankingPage() {
                 : `E${String(episode.episodeNumber).padStart(2, "0")}`
               const seriesTitle = (episode as any).season?.series?.title ?? null
               const seriesSlug = (episode as any).season?.series?.slug ?? null
+              const detailHref = episode.slug
+                ? `/episodes/${episode.slug}?backLabel=${encodeURIComponent("Rankings")}&backHref=${encodeURIComponent("/rankings/episodes")}`
+                : "#"
 
               return (
                 <Card
@@ -96,7 +111,7 @@ export default function EpisodesRankingPage() {
                   )} />
 
                   {/* LEFT: Thumbnail in 2:3 portrait container */}
-                  <Link href={episode.slug ? `/episodes/${episode.slug}` : "#"} className="relative aspect-[2/3] w-28 sm:w-36 md:w-44 shrink-0 overflow-hidden">
+                  <Link href={detailHref} onClick={saveScroll} className="relative aspect-[2/3] w-28 sm:w-36 md:w-44 shrink-0 overflow-hidden">
                     {episode.heroImageUrl ? (
                       <img
                         src={episode.heroImageUrl}
@@ -128,7 +143,7 @@ export default function EpisodesRankingPage() {
 
                     <div className="space-y-5">
                       <div className="space-y-3">
-                        <Link href={episode.slug ? `/episodes/${episode.slug}` : "#"} className="block">
+                        <Link href={detailHref} onClick={saveScroll} className="block">
                           <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extralight tracking-tighter text-zinc-100 transition-all duration-700 group-hover:text-white group-hover:translate-x-1 hover:underline decoration-primary/50 underline-offset-4">
                             {episode.title}
                           </h3>
@@ -196,7 +211,7 @@ export default function EpisodesRankingPage() {
                                   <span className={cn("text-3xl md:text-5xl font-black tracking-tighter tabular-nums", getScoreColor(userScore).text)}>
                                     {userScore.toFixed(2)}
                                   </span>
-                                  <Link href={episode.slug ? `/episodes/${episode.slug}` : "#"}>
+                                  <Link href={detailHref} onClick={saveScroll}>
                                     <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-900/20 text-amber-500 transition-all duration-500 group-hover:border-amber-500/40 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]">
                                       <Star className="h-5 w-5" />
                                     </div>
@@ -225,7 +240,7 @@ export default function EpisodesRankingPage() {
 
                       {/* CTA */}
                       <Link
-                        href={episode.slug ? `/episodes/${episode.slug}` : "#"}
+                        href={detailHref} onClick={saveScroll}
                         className="hidden sm:flex group/btn relative items-center gap-2 md:gap-4 overflow-hidden rounded-full bg-white px-4 md:px-8 py-2 md:py-3 transition-all duration-500 hover:bg-primary hover:text-white"
                       >
                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-black group-hover/btn:text-white">

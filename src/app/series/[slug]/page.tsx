@@ -70,7 +70,7 @@ export default function SeriesPage() {
       <SectionDivider />
 
       {/* Seasons & episodes */}
-      <SeasonsSection seriesId={series.id} />
+      <SeasonsSection seriesId={series.id} seriesTitle={series.title} seriesSlug={series.slug ?? null} />
 
       {/* Section divider */}
       <SectionDivider />

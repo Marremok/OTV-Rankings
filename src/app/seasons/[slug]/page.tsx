@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useGetSeasonBySlug } from "@/hooks/use-seasons";
 import {
   SeasonHero,
+  SeasonDescriptionSection,
   SeasonRatingSummary,
   SeasonPillarsSection,
   SeasonEpisodeList,
@@ -41,10 +42,13 @@ export default function SeasonPage() {
         <SeasonHero
           order={season.order}
           title={season.title}
-          description={season.description}
           heroImageUrl={season.heroImageUrl}
+        />
+        <SeasonDescriptionSection
+          title={season.title ?? `Season ${season.order}`}
+          description={season.description}
           score={season.score}
-          series={season.series}
+          ranking={season.ranking > 0 ? season.ranking : undefined}
         />
         <SeasonRatingSummary slug={slug} />
         <SeasonPillarsSection seasonId={season.id} />
